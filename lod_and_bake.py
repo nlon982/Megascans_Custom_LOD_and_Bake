@@ -19,26 +19,26 @@ class Bake:
     # + they can be accessed without instantiating the class
 
 
-    def __init__(self, highpoly_path, lod_path, resolution_tuple, maps_to_bake_dict, export_directory): # I haven't given a choice of export name, because that adds so much complexity
+    def __init__(self, highpoly_path, lod_path, resolution_x, resolution_y, maps_to_bake_dict, export_directory): # I haven't given a choice of export name, because that adds so much complexity
         check_path(highpoly_path)
         self.highpoly_path = highpoly_path # e.g. "C:/User/geometry.fbx"
 
         check_path(lod_path)
         self.lod_path = lod_path
 
-        self.resolution_tuple = resolution_tuple
+        self.resolution_tuple = (resolution_x, resolution_y)
 
-        self.export_path = os.path.join(export_directory, "custom_baking_%(CHANNEL)s.rat") # this is what the bake_texture node uses. Hardcoded along with export_name below
+        self.export_path = os_path_join_fix(export_directory, "custom_baking_%(CHANNEL)s.rat") # this is what the bake_texture node uses. Hardcoded along with export_name below
 
-        # Setup export_path_dict
+        # Setup export_paths_dict
         
         self.export_paths_dict = dict()
-        for map_name in to_bake_dict.keys():
+        for map_name in maps_to_bake_dict.keys():
 
-            if to_bake_dict[map_name] == True:
+            if maps_to_bake_dict[map_name] == True:
                 parameter_name = self.houdini_parameter_names[map_name]
                 export_name = "custom_baking_{}.exr".format(parameter_name.split("_")[-1]) # i.e. if the parameter name is 'vm_quickplane_Ds', the render token, %(CHANNEL)s, is 'Ds'
-                self.export_paths_dict[map_name] = os.path.join(export_directory, export_name)
+                self.export_paths_dict[map_name] = os_path_join_fix(export_directory, export_name)
 
         self.maps_to_bake_dict = maps_to_bake_dict
 
@@ -62,11 +62,11 @@ class Bake:
         string_processor(ropnet_node, "@ebake_texture!camera:{}!vm_uvunwrapresx:int{}!vm_uvunwrapresy:int{}!vm_uvobject1:{}!vm_uvhires1:{}!vm_uvoutputpicture1:{}!vm_extractimageplanesformat:OpenEXR!vm_extractremoveintermediate:+!vm_uv_unwrap_method:int2".format(a_camera.path(), self.resolution_tuple[0], self.resolution_tuple[1], lod_geo_node.path(), highpoly_geo_node.path(), self.export_path.replace(" ", "%20"))) #TODO
                 
         # Iterate through 
-        for map_name in self.to_bake_dict.keys():
+        for map_name in self.maps_to_bake_dict.keys():
             parameter_name = self.houdini_parameter_names[map_name]
             corresponding_parm = baketexture_node.parm(parameter_name)
 
-            bake_bool = self.to_bake_dict[map_name] # tr
+            bake_bool = self.maps_to_bake_dict[map_name] # tr
             if bake_bool == True:
                 corresponding_parm.set(1) # set ticked
             else:
@@ -83,7 +83,7 @@ class Bake:
 class LOD:
 
     def __init__(self, highpoly_path, polyreduce_percentage, export_path):
-        check_path(highpoly_path)
+        #check_path(highpoly_path)
         self.highpoly_path = highpoly_path # e.g. "C:/User/geometry.fbx"
 
         self.polyreduce_percentage = polyreduce_percentage
@@ -92,20 +92,15 @@ class LOD:
 
 
     def create_in_houdini(self, housing_node): # includes executing
-    
+        print("a")
         custom_lod_node = housing_node.createNode("geo", "Custom_LOD")
-        string_processor(custom_lod_node,\
-            "cfile-file_node i0 cconvert-convert_node i0 \
-            econvert_node i0 cpolyreduce::2.0-polyreduce_node i0 \
-            epolyreduce_node i0 crop_fbx-rop_fbx_node i0")
+        print("b")
+        string_processor(custom_lod_node,"cfile-file_node i0 cconvert-convert_node i0 econvert_node i0 cpolyreduce::2.0-polyreduce_node i0 epolyreduce_node i0 crop_fbx-rop_fbx_node i0")
         
         hou.hipFile.save() # save hip file before render
-        
-        string_processor(custom_lod_node, \
-            "@efile_node!file:{} \
-            @epolyreduce_node!percentage:int{}!reducepassedtarget:+!originalpoints:+ \
-            @erop_fbx_node!sopoutput:{}!execute:="\
-            .format(self.highpoly_path.replace(" ", "%20"), self.polyreduce_percentage, self.export_path.replace(" ", "%20")))
+        print("c")
+        string_processor(custom_lod_node, "@efile_node!file:{} @epolyreduce_node!percentage:int{}!reducepassedtarget:+!originalpoints:+ @erop_fbx_node!sopoutput:{}!execute:=".format(self.highpoly_path.replace(" ", "%20"), self.polyreduce_percentage, self.export_path.replace(" ", "%20")))
+
 
 
 
