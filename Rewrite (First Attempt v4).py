@@ -133,6 +133,12 @@ def get_nodes(megascans_asset_subnet_node): # assumes using certain version of B
     return asset_geometry_node, asset_material_node, file_node, transform_node, rs_material_builder_node, redshift_material_node
 
 
+def replace_substring_with_count(a_string, substring_to_replace, count):
+    while substring_to_replace in a_string:
+        a_string = a_string.replace(substring_to_replace, str(count), 1)
+        count += 1
+    return a_string, count
+
 def main():
     print("\n----------- Starting -----------")
     selected_node_list = hou.selectedNodes()
@@ -237,14 +243,15 @@ def main():
     # I know it's not called "Normal" TODO ^
 
     for map_name in export_paths_dict.keys(): # have to get keys again since htey've changed
-        the_export_path = export_paths_dict[map_name]
         try:
-            node_setup_string = node_setup_dict[map_name].format(export_path = the_export_path.replace(" ", "%20"), bump_blender_layer = current_bump_blender_layer) # format will only put in if it's there, and not throw an error, which is great
-            if "bumpInput" in node_setup_string: # assuming just in it once (called get it to count)
-                current_bump_blender += 1
+            node_setup_string = node_setup_dict[map_name]
         except KeyError: # only error it could be
             raise Exception("node_setup_dict does not contain the node setup for map_name: {}".format(map_name))
-        string_processor(rs_material_builder_node, node_setup_string)
+        else:
+            a_export_path = export_paths_dict[map_name]
+            node_setup_string, current_bump_blender_layer = replace_substring_with_count(node_setup_string, "{bump_blender_layer}", current_bump_blender_layer)
+            node_setup_string = node_setup_string.format(export_path = a_export_path.replace(" ", "%20")) # using format instead of replace, just for the sake of that's how I would've done the above
+            string_processor(rs_material_builder_node, node_setup_string)
 
     #-----------------------------------------------
     file_node.parm("file").set(customlod_path)
@@ -257,3 +264,4 @@ def main():
     selected_node.layoutChildren()
 
 main()
+
