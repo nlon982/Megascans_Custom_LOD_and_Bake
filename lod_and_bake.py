@@ -19,7 +19,7 @@ class Bake:
     # + they can be accessed without instantiating the class
 
 
-    def __init__(self, highpoly_path, lod_path, resolution_x, resolution_y, maps_to_bake_dict, export_directory): # I haven't given a choice of export name, because that adds so much complexity
+    def __init__(self, highpoly_path, lod_path, maps_to_bake_dict, resolution_x, resolution_y, export_directory): # I haven't given a choice of export name, because that adds so much complexity
         check_path(highpoly_path)
         self.highpoly_path = highpoly_path # e.g. "C:/User/geometry.fbx"
 
@@ -61,7 +61,7 @@ class Bake:
         baketexture_node = ropnet_node.createNode("baketexture::3.0", "bake_texture")
         string_processor(ropnet_node, "@ebake_texture!camera:{}!vm_uvunwrapresx:int{}!vm_uvunwrapresy:int{}!vm_uvobject1:{}!vm_uvhires1:{}!vm_uvoutputpicture1:{}!vm_extractimageplanesformat:OpenEXR!vm_extractremoveintermediate:+!vm_uv_unwrap_method:int2".format(a_camera.path(), self.resolution_tuple[0], self.resolution_tuple[1], lod_geo_node.path(), highpoly_geo_node.path(), self.export_path.replace(" ", "%20"))) #TODO
                 
-        # Iterate through 
+        # Iterate through maps_to_bake_dict, ticking parameters of corrsponding maps which have True in the dict
         for map_name in self.maps_to_bake_dict.keys():
             parameter_name = self.houdini_parameter_names[map_name]
             corresponding_parm = baketexture_node.parm(parameter_name)

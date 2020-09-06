@@ -169,24 +169,19 @@ def main():
     print("Step 1 begins")
 
     polyreduce_percentage = 50
-    print("3.5")
-    
+
     customlod_name = megascans_asset_name + "_LOD_custom_{}percent.fbx".format(polyreduce_percentage)
     customlod_path = os_path_join_fix(megascans_asset_folder_path, customlod_name)
 
-    print("4")
     highpoly_name = get_maps_of_name_type_and_res(file_scan, "High", file_extension_list = ".fbx")[0] # pick bset from sorted, which is at index 0
     highpoly_path = os_path_join_fix(megascans_asset_folder_path, highpoly_name)
     
-    print("5")
     a_lod_object = LOD(highpoly_path, polyreduce_percentage, customlod_path)
-    print("6")
-    a_lod_object.create_in_houdini(subnet_node)
-    print("7")
 
+    a_lod_object.create_in_houdini(subnet_node)
 
     #-----------------------------------------------
-    # Step 2) Bake custom displacement
+    # Step 2) Bake Custom Maps, and give dictionary with their map names and export paths
     print("Step 2 begins")
     
     maps_resolution_x = 2048
@@ -196,9 +191,8 @@ def main():
     maps_to_bake_dict["Displacement"] = True
     maps_to_bake_dict["Vector Displacement"] = True
 
-    a_bake_object = Bake(highpoly_path, customlod_path, maps_resolution_x, maps_resolution_y, maps_to_bake_dict, megascans_asset_folder_path)
+    a_bake_object = Bake(highpoly_path, customlod_path, maps_to_bake_dict, maps_resolution_x, maps_resolution_y, megascans_asset_folder_path)
     export_paths_dict = a_bake_object.create_in_houdini(subnet_node)
-    print(export_paths_dict)
 
     #-----------------------------------------------
     # Step 3) Node setup
@@ -207,20 +201,12 @@ def main():
     # Enable Tessellation, Displacement, and set Displacement Scale
     asset_geometry_node.parm("RS_objprop_rstess_enable").set(1)
     asset_geometry_node.parm("RS_objprop_displace_enable").set(1)
-    displacement_scale = transform_node.parm("scale").eval() # retrieved from transform_node
+    displacement_scale = transform_node.parm("scale").eval() # retrieved from transform_node after file import
     asset_geometry_node.parm("RS_objprop_displace_scale").set(displacement_scale)
-
-    #string_processor(subnet_node, "@eAsset_Geometry!RS_objprop_rstess_enable:+!RS_objprop_displace_enable:+!RS_objprop_displace_scale:0.01") # this scale is based off the transform in the file import, blah blah. Foolproofing would be to set this off that.
 
     # Create Bump Blender (note, I have not changed layer blend weights like I did last time!)
     string_processor(rs_material_builder_node, "cBumpBlender-bump_blender i0 e{} i2".format(redshift_material_node.name()))
-    current_bump_blender_layer = 0 # to keep track. I could make a class for this to ensure, but just being simple.
-    # assuming 'Base' on BumpBlender doesn't need to be used
-
-    # Maxon Noise
-    #string_processor(rs_material_builder_node, "cMaxonNoise-maxon_noise!noise_type:Displaced%20turbulence!coord_scale_global:0.1 i0 cBumpMap-bump_for_maxon i0 ebump_for_maxon i0 ebump_blender nbumpInput{}".format(current_bump_blender_layer)) 
-    #current_bump_blender_layer += 1
-
+    current_bump_blender_layer = 0 # assuming 'Base' on BumpBlender doesn't need to be used
 
     # Hardcoded logic
     export_paths_dict_keys = export_paths_dict.keys() # so I don't have to get the keys again (probably not worth it)
@@ -233,14 +219,13 @@ def main():
                 child.destroy()
                 break
 
-
+    # Configure Node Setup Dict
     node_setup_dict = dict()
     node_setup_dict["Displacement"] = "@edisplacement!tex0:{export_path} @eDisplacement1!map_encoding:1"
     node_setup_dict["Vector Displacement"] = "@edisplacement!tex0:{export_path} @eDisplacement1!map_encoding:0"
-    node_setup_dict["Bump Map"] = "cTextureSampler-bump!tex0:{export_path}!color_multiplierr:0.2!color_multiplierg:0.2!color_multiplierb:0.2 i0 cBumpMap-bump_for_bump i0 ebump_for_bump i0 ebump_blender nbaseInput{bump_blender_layer}"
-    # I know it's not called "Bump Map" TODO ^
-    node_setup_dict["Normal"] = "cNormalMap-normal!tex0:{export_path} i0 cBumpMap-bump_for_normal!inputType:1 i0 ebump_for_normal i0 ebump_blender nbumpInput{bump_blender_layer}"
-    # I know it's not called "Normal" TODO ^
+    #node_setup_dict["Bump Map"] = "cTextureSampler-bump!tex0:{export_path}!color_multiplierr:0.2!color_multiplierg:0.2!color_multiplierb:0.2 i0 cBumpMap-bump_for_bump i0 ebump_for_bump i0 ebump_blender nbaseInput{bump_blender_layer}"
+    #node_setup_dict["Normal"] = "cNormalMap-normal!tex0:{export_path} i0 cBumpMap-bump_for_normal!inputType:1 i0 ebump_for_normal i0 ebump_blender nbumpInput{bump_blender_layer}"
+
 
     for map_name in export_paths_dict.keys(): # have to get keys again since htey've changed
         try:
