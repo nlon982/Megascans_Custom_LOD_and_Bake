@@ -1,9 +1,11 @@
 from huilib import *
 
+
+
 class MegascansFixerDialog(HDialog):
         def __init__(self, megascans_asset_object):
-                super(MyDialog, self).__init__("Namegoeshere", "Title goes here")
-                self.megascans_asset_object = megascans_asset_object # Note, this importantly calls the 'do_it' method when the go button is pressed
+                super(MegascansFixerDialog, self).__init__("Namegoeshere", "Title goes here")
+                self.megascans_asset_object = megascans_asset_object # Note, this importantly calls the 'execute_fix' method when the go button is pressed
                 # ^ continued: otherwise, use however you please (perhaps have it show the path of the megascans asset). 
 
 
@@ -120,9 +122,11 @@ class MegascansFixerDialog(HDialog):
                 else:
                         use_temp_displacement_bool = True
 
+                self.close() # inherited call back method to close the UI
+
                 self.megascans_asset_object.execute_fix(polyreduce_percentage_float, displacement_type_str, displacement_resolution_str, use_temp_displacement_bool)
                 # for testing
                 #message_string = "polyreduce percentage: {}\ndisplacement type: {}\ndisplacement resolution: {}\nuse_temp_displacement: {}".format(polyreduce_percentage_float, displacement_type_str, displacement_resolution_str, self.use_temp_displacement_toggle.isChecked())
                 #hou.ui.displayMessage(message_string)
 
-                self.close() # inherited call back method to close the UI
+                

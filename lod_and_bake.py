@@ -1,3 +1,9 @@
+import os
+import hou
+from big_framework import string_processor
+
+from megascans_fixer import os_path_join_fix
+
 def check_node_exists(a_node_path): # I was thinking of doing something like this. Currently I haven't used this - still deciding
     a_node = hou.node(a_node_path)
     if a_node == None:
@@ -96,11 +102,11 @@ class LOD:
         string_processor(custom_lod_node,"cfile-file_node i0 cconvert-convert_node i0 econvert_node i0 cpolyreduce::2.0-polyreduce_node i0 epolyreduce_node i0 crop_fbx-rop_fbx_node i0")
         
         hou.hipFile.save() # save hip file before render
-        string_processor(custom_lod_node, "@efile_node!file:{} @epolyreduce_node!percentage:int{}!reducepassedtarget:+!originalpoints:+ @erop_fbx_node!sopoutput:{}!execute:=".format(self.highpoly_path.replace(" ", "%20"), self.polyreduce_percentage, self.export_path.replace(" ", "%20")))
+        string_processor(custom_lod_node, "@efile_node!file:{} @epolyreduce_node!percentage:{}!reducepassedtarget:+!originalpoints:+ @erop_fbx_node!sopoutput:{}!execute:=".format(self.highpoly_path.replace(" ", "%20"), self.polyreduce_percentage, self.export_path.replace(" ", "%20")))
 
 
 
-
+"""
 highpoly_path = r"C:\Users\Nathan Longhurst\Documents\Megascans Library\Downloaded\3d\rock_assembly_siEoZ\siEoZ_High.fbx"
 export_path = r"C:\Users\Nathan Longhurst\Documents\Megascans Library\Downloaded\3d\rock_assembly_siEoZ\lod_test.fbx"
 a_lod_object = LOD(highpoly_path, 50, export_path)
@@ -113,3 +119,4 @@ print(to_bake_dict)
     
 a_bake_object = Bake(highpoly_path, export_path, (2048, 2048), to_bake_dict, r"C:\Users\Nathan Longhurst\Documents\Megascans Library\Downloaded\3d\rock_assembly_siEoZ")
 print(a_bake_object.create_in_houdini(hou.node("/obj")))
+"""

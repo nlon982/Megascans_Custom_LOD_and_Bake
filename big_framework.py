@@ -1,3 +1,5 @@
+import hou
+
 # A framework to quickly make node setups / configure parameters
 
 def parameter_processor(the_node, params): # I wrote the_node in order to not confuse with 'a_node', which means housing node.
