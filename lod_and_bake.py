@@ -15,10 +15,10 @@ def check_path(a_path):
 
 class Bake:
     # makes sense that these are class variables, should these be treated as constants (and hence capitals)?
-    houdini_parameter_names = {"Tangent-Space Normal" : "vm_quickplane_Nt", "Displacement" : "vm_quickplane_Ds", "Vector Displacement" : "vm_quickplane_Vd", "Tangent-Space Vector Displacement" : "vm_quickplane_Vdt", "Occlusion" : "vm_quickplane_Oc", "Cavity" : "vm_quickplane_Cv", "Thickness" : "vm_quickplane_Th", "Curvature" : "vm_quickplane_Cu"} 
+    map_name_and_houdini_parameter_name_dict = {"Tangent-Space Normal" : "vm_quickplane_Nt", "Displacement" : "vm_quickplane_Ds", "Vector Displacement" : "vm_quickplane_Vd", "Tangent-Space Vector Displacement" : "vm_quickplane_Vdt", "Occlusion" : "vm_quickplane_Oc", "Cavity" : "vm_quickplane_Cv", "Thickness" : "vm_quickplane_Th", "Curvature" : "vm_quickplane_Cu"} 
     
     maps_to_bake_dict_template = dict()
-    for key in houdini_parameter_names.keys(): # less repeating code by generating it here
+    for key in map_name_and_houdini_parameter_name_dict.keys(): # less repeating code by generating it here
         maps_to_bake_dict_template[key] = False
 
     # recall that the benefit of class variables is that they aren't created for each instance all over again
@@ -27,10 +27,10 @@ class Bake:
 
     def __init__(self, highpoly_path, lod_path, maps_to_bake_dict, resolution_x, resolution_y, export_directory): # I haven't given a choice of export name, because that adds so much complexity
         check_path(highpoly_path)
-        self.highpoly_path = highpoly_path # e.g. "C:/User/geometry.fbx"
+        self.highpoly_path = highpoly_path # e.g. "C:/User/highpoly.fbx"
 
         check_path(lod_path)
-        self.lod_path = lod_path
+        self.lod_path = lod_path # e.g. "C:/User/lod.fbx"
 
         self.resolution_tuple = (resolution_x, resolution_y)
 
@@ -42,7 +42,7 @@ class Bake:
         for map_name in maps_to_bake_dict.keys():
 
             if maps_to_bake_dict[map_name] == True:
-                parameter_name = self.houdini_parameter_names[map_name]
+                parameter_name = self.map_name_and_houdini_parameter_name_dict[map_name]
                 export_name = "custom_baking_{}.exr".format(parameter_name.split("_")[-1]) # i.e. if the parameter name is 'vm_quickplane_Ds', the render token, %(CHANNEL)s, is 'Ds'
                 self.map_name_and_export_paths_dict[map_name] = os_path_join_fix(export_directory, export_name)
 
@@ -51,7 +51,7 @@ class Bake:
 
 
 
-    def create_in_houdini(self, housing_node): # includes executing the baking
+    def create_and_execute_in_houdini(self, housing_node): # includes executing the baking
         # Set up GEOs
         highpoly_geo_node = housing_node.createNode("geo", "Highpoly_geo_temp")
         lod_geo_node = housing_node.createNode("geo", "LOD_geo_temp") # aka lowpoly
@@ -69,14 +69,16 @@ class Bake:
                 
         # Iterate through maps_to_bake_dict, ticking parameters of corresponding maps which have True in the dict
         for map_name in self.maps_to_bake_dict.keys():
-            parameter_name = self.houdini_parameter_names[map_name]
+            parameter_name = self.map_name_and_houdini_parameter_name_dict[map_name]
             corresponding_parm = baketexture_node.parm(parameter_name)
 
             bake_bool = self.maps_to_bake_dict[map_name] # tr
             if bake_bool == True:
                 corresponding_parm.set(1) # set ticked
-            else:
+            elif bake_bool == False:
                 corresponding_parm.set(0) # set unticked
+            else:
+                raise Exception("bake_bool: {}. Expected bake_bool to be boolean".format(bake_bool))
 
         # Save and execute
         hou.hipFile.save()
@@ -97,7 +99,7 @@ class LOD:
         self.export_path = export_path
 
 
-    def create_in_houdini(self, housing_node): # includes executing
+    def create_and_execute_in_houdini(self, housing_node): # includes executing
         custom_lod_node = housing_node.createNode("geo", "Custom_LOD")
         string_processor(custom_lod_node,"cfile-file_node i0 cconvert-convert_node i0 econvert_node i0 cpolyreduce::2.0-polyreduce_node i0 epolyreduce_node i0 crop_fbx-rop_fbx_node i0")
         

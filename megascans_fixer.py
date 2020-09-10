@@ -6,9 +6,9 @@ from big_framework import string_processor
 import ui_attempt
 import lod_and_bake
 
-
+# so houdini doesn't use the precompiled:
 reload(ui_attempt)
-reload(lod_and_bake)
+reload(lod_and_bake) 
 
 # so to copy and paste all the code means I have to delete 'ui_attempt.' preceding etc.
 
@@ -66,7 +66,7 @@ def get_highest_resolution(megascans_folder_scan): # i.e. ONLY maps don't have t
             pass
 
     if len(resolution_list) == 0:
-        return None # I think that's the cleanest than returning a default resolution (let that be decided elsewhere)
+        return None # I think that's the cleanest thing to do, as oppose than returning a default resolution (let that be decided elsewhere)
     else:
         return max(a_list) * 1024
 
@@ -140,7 +140,7 @@ def replace_substring_with_count(a_string, substring_to_replace, count):
         count += 1
     return a_string, count
 
-def modify_megascans_material_node_setup(rs_material_builder_node, map_name_and_node_setup_dict, map_name_and_export_paths_dict, current_bump_blender_layer):
+def add_to_megascans_material_node_setup(rs_material_builder_node, map_name_and_node_setup_dict, map_name_and_export_paths_dict, current_bump_blender_layer):
     for map_name in map_name_and_export_paths_dict.keys(): # have to get keys again since htey've changed
         try:
             node_setup_string = map_name_and_node_setup_dict[map_name]
@@ -170,8 +170,8 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         # Executing of the above with no errors means it's confirmed it's a megascans asset, and should be time to call the UI. Perhaps edit the above error code to throw a hou.ui.displayMessage if anything goes wrong (rather than the existing exceptions) - maybe pull this off with a try except?
 
     def execute_fix(self, polyreduce_percentage_float, displacement_type_str, displacement_resolution_str, use_temp_displacement_bool): # can't think of a better name
-        # The following is all housed in the below subnet called Subnet
-        fix_subnet_node = self.megascans_asset_subnet.createNode("subnet", "Subnet") # Feel free to change. 
+        # Step 1 and 2 are housed in this subnet node
+        fix_subnet_node = self.megascans_asset_subnet.createNode("subnet", "Megascans_Fixer_Subnet") # Feel free to change name
 
         #-----------------------------------------------
         # Step 1) Make Custom LOD
@@ -184,7 +184,7 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         highpoly_path = os_path_join_fix(self.megascans_asset_folder_path, highpoly_name)
         
         a_lod_object = lod_and_bake.LOD(highpoly_path, polyreduce_percentage_float, customlod_path)
-        a_lod_object.create_in_houdini(fix_subnet_node)
+        a_lod_object.create_and_execute_in_houdini(fix_subnet_node)
 
         #-----------------------------------------------
         # Step 2) Bake Custom Maps, and give dictionary with their map names and export paths
@@ -198,10 +198,10 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         maps_to_bake_dict["Vector Displacement"] = True
 
         a_bake_object = lod_and_bake.Bake(highpoly_path, customlod_path, maps_to_bake_dict, maps_resolution_x, maps_resolution_y, self.megascans_asset_folder_path)
-        map_name_and_export_paths_dict = a_bake_object.create_in_houdini(fix_subnet_node)
+        map_name_and_export_paths_dict = a_bake_object.create_and_execute_in_houdini(fix_subnet_node)
 
         #-----------------------------------------------
-        # Step 3) Configure and Edit Megascans Material's Node Setup (enable tessalation, displacement etc. and edit node setup)
+        # Step 3) Configure and Modify Megascans Material's Node Setup (enable tessalation, displacement etc. and edit node setup)
         #print("Step 3 begins")
 
 
@@ -213,12 +213,12 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         self.asset_geometry_node.parm("RS_objprop_displace_scale").set(displacement_scale)
 
 
-        # Create Bump Blender (note, I have not changed layer blend weights like I did last time!)
+        # Create Bump Blender (note, I have not changed layer blend weights like I did last time!) in Megascans Material's Node Setup
         string_processor(self.rs_material_builder_node, "cBumpBlender-bump_blender i0 e{} i2".format(self.redshift_material_node.name()))
         current_bump_blender_layer = 0 # assuming 'Base' on BumpBlender doesn't need to be used
 
 
-        # Hardcoded logic
+        # Hardcoded logic on Megascans Material's Node Setup
         map_name_and_export_paths_dict_keys = map_name_and_export_paths_dict.keys() # so I don't have to get the keys again (probably not worth it)
         if "Vector Displacement" in map_name_and_export_paths_dict_keys and "Displacement" in map_name_and_export_paths_dict_keys: # if both there, only set up Vector Displacement
             map_name_and_export_paths_dict.pop("Displacement") 
@@ -229,6 +229,8 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
                     child.destroy()
                     break
 
+
+        # Add to Megascans Material's Node Setup
         # Configure Map Name and Node Setup Dict
         map_name_and_node_setup_dict = dict()
         map_name_and_node_setup_dict["Displacement"] = "@edisplacement!tex0:{export_path} @eDisplacement1!map_encoding:1"
@@ -236,8 +238,7 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         #map_name_and_node_setup_dict["Bump Map"] = "cTextureSampler-bump!tex0:{export_path}!color_multiplierr:0.2!color_multiplierg:0.2!color_multiplierb:0.2 i0 cBumpMap-bump_for_bump i0 ebump_for_bump i0 ebump_blender nbaseInput{bump_blender_layer}"
         #map_name_and_node_setup_dict["Normal"] = "cNormalMap-normal!tex0:{export_path} i0 cBumpMap-bump_for_normal!inputType:1 i0 ebump_for_normal i0 ebump_blender nbumpInput{bump_blender_layer}"
 
-        # Edit Megascans Material's Node Setup
-        modify_megascans_material_node_setup(self.rs_material_builder_node, map_name_and_node_setup_dict, map_name_and_export_paths_dict, current_bump_blender_layer)
+        add_to_megascans_material_node_setup(self.rs_material_builder_node, map_name_and_node_setup_dict, map_name_and_export_paths_dict, current_bump_blender_layer)
 
 
         #-----------------------------------------------
@@ -251,6 +252,13 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         
         # Layout the thing that holds the subnet
         self.megascans_asset_subnet.layoutChildren()
+
+        # Set Network Editor pane to be where you started (at the location of the megascans asset node - as oppose to inside the fix_subnet_node)
+        network_editor = [pane for pane in hou.ui.paneTabs() if isinstance(pane, hou.NetworkEditor) and pane.isCurrentTab()][0] # assuming just one. 
+        # ^ as per: https://forums.odforce.net/topic/12406-getting-the-current-active-network-editor-pane/, doesn't seem like there's a better way to do it nowadays
+        network_editor.setCurrentNode(self.megascans_asset_subnet)
+
+        hou.ui.displayMessage("Done successfully!") # feel free to change
 
 
 
@@ -271,7 +279,7 @@ def main():
     ui = ui_attempt.MegascansFixerDialog(megascans_asset_object)
     ui.show()
 
-    # the above handles calling the 'execute_fix' method
+    # the above handles calling the 'execute_fix' method upon the 'Go!' button being pressed
 
 
 
