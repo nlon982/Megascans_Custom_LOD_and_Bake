@@ -1,3 +1,5 @@
+from houlib import *
+
 class MyDialog(HDialog):
         def __init__(self):
                 super(MyDialog, self).__init__("Namegoeshere", "Title goes here")
