@@ -30,15 +30,15 @@ class Bake:
 
         self.export_path = os_path_join_fix(export_directory, "custom_baking_%(CHANNEL)s.rat") # this is what the bake_texture node uses. Hardcoded along with export_name below
 
-        # Setup export_paths_dict
+        # Setup map_name_and_export_paths_dict
         
-        self.export_paths_dict = dict()
+        self.map_name_and_export_paths_dict = dict()
         for map_name in maps_to_bake_dict.keys():
 
             if maps_to_bake_dict[map_name] == True:
                 parameter_name = self.houdini_parameter_names[map_name]
                 export_name = "custom_baking_{}.exr".format(parameter_name.split("_")[-1]) # i.e. if the parameter name is 'vm_quickplane_Ds', the render token, %(CHANNEL)s, is 'Ds'
-                self.export_paths_dict[map_name] = os_path_join_fix(export_directory, export_name)
+                self.map_name_and_export_paths_dict[map_name] = os_path_join_fix(export_directory, export_name)
 
         self.maps_to_bake_dict = maps_to_bake_dict
 
@@ -76,7 +76,7 @@ class Bake:
         hou.hipFile.save()
         baketexture_node.parm("execute").pressButton()
 
-        return self.export_paths_dict # returning since it's new info (it wasn't passed in by the user)
+        return self.map_name_and_export_paths_dict # returning since it's new info (it wasn't passed in by the user)
 
 
 

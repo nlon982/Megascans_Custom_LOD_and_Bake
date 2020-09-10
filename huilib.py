@@ -188,6 +188,7 @@ class HCheckbox(HBaseGadget):
     def __init__(self, name, label):
         super(HCheckbox, self).__init__(name, label)
 
+
     def isChecked(self):
         return self.getValue()
 

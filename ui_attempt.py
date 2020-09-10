@@ -1,4 +1,4 @@
-from houlib import *
+from huilib import *
 
 class MyDialog(HDialog):
         def __init__(self):
@@ -9,6 +9,12 @@ class MyDialog(HDialog):
                 # using conventions that i'm coming up with to keep this organised
                 # assigning a Gadget to self.variablename (a personalised variable name too) when I know i'll access it later
                 
+                # Prep
+
+                self.displacement_type_menu_list = ["Displacement", "Vector Displacement"]
+                self.displacement_resolution_menu_list = ["8K", "4K", "2K", "1K"]
+
+
                 #-------------- General
                 
                 sep = HSeparator()
@@ -67,14 +73,15 @@ class MyDialog(HDialog):
                 space_label2 = HLabel("")
                 space_column_layout2.addGadget(space_label2)    
                 
-                self.displacement_type_menu = HStringMenu("displacement_type_menu", "Displacement Map Type", ["Displacement", "Vector Displacement"])
+                self.displacement_type_menu = HStringMenu("displacement_type_menu", "Displacement Map Type", self.displacement_type_menu_list)
                 other_column_layout2.addGadget(self.displacement_type_menu)
 
                 
-                self.displacement_resolution_menu = HStringMenu("displacement_resolution_menu", "Displacement Map Resolution", ["8K", "4K", "2K", "1K"])
+                self.displacement_resolution_menu = HStringMenu("displacement_resolution_menu", "Displacement Map Resolution", self.displacement_resolution_menu_list)
                 other_column_layout2.addGadget(self.displacement_resolution_menu)
                 
                 self.use_temp_displacement_toggle = HCheckbox("use_temp_displacement_toggle", "Temporarily use 1K Resoluton while above is baked (does nothing if 1K is chosen above)")
+                self.use_temp_displacement_toggle.setValue("0") # because it's not set to ?anything? by default (but should be set to 0 as that corresponds to unticked - so doing it here), which is FUCKED
                 other_column_layout2.addGadget(self.use_temp_displacement_toggle)
                 
                 self.addGadget(sep)
@@ -88,13 +95,33 @@ class MyDialog(HDialog):
                 
                 #-------------- "connect call backs"
                 
-                self.go_button.connect(self.close) # close is an inherited method
+                self.go_button.connect(self.cb_go_button) # close is an inherited method
                 
                 
                 
                 #-------------- Initialize
                 self.initUI()
 
+        def cb_go_button(self):
 
-ui = MyDialog()
-ui.show()
+
+                # I have the types in the variable names for clarity
+
+                polyreduce_percentage_float = float(self.polyreduce_percentage_slider.getValue())
+                
+                displacement_type_str = self.displacement_type_menu_list[self.displacement_type_menu.getValue()]
+                displacement_resolution_str = self.displacement_resolution_menu_list[self.displacement_resolution_menu.getValue()]
+
+                use_temp_displacement_str = self.use_temp_displacement_toggle.isChecked() # i.e. it's "0" or "1", but I want it True or False for clarity
+                if use_temp_displacement_str == 0:
+                        use_temp_displacement_bool = False
+                else:
+                        use_temp_displacement_bool = True
+
+
+                message_string = "polyreduce percentage: {}\ndisplacement type: {}\ndisplacement resolution: {}\nuse_temp_displacement: {}".format(polyreduce_percentage_float, displacement_type_str, displacement_resolution_str, self.use_temp_displacement_toggle.isChecked())
+                hou.ui.displayMessage(message_string)
+
+                self.close() # inherited call back method to close the UI
+
+                
