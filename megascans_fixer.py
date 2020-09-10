@@ -12,7 +12,7 @@ def os_path_join_fix(*args): # in the version of Python that Houdini has, os_pat
     return a_path[:-1] # so there isn't a final slash in the end
 
 
-def get_file_scan(a_path):
+def get_file_scan(a_path): # versus 'get_maps' which is risky since it requires knowing all the possible map names (instead, get all files, and take maps you want that exist with get_maps_of_name_type_and_res
     file_scan_list = list()
     scan_list = os.listdir(a_path)
     for material_name in scan_list:
@@ -20,20 +20,6 @@ def get_file_scan(a_path):
         if os.path.isdir(a_path) == False:
             file_scan_list.append(material_name)
     return file_scan_list
-
-""" I don't think this is best to use, see below's use without it
-def get_maps(file_scan):
-        maps_list = list()
-        map_name_list = ["Albedo", "Roughness", "Normal", "Displacement"]
-
-        for file_name in file_scan:
-                for map_name in map_name_list:
-                        
-                        if map_name.lower() in file_name.lower():
-                                maps_list.append(file_name)
-
-        return maps_list
-"""
 
 def get_child_from_parent_node(parent_node_path, child_name): # exception handling expected by caller
     child_node_path = "{}/{}".format(parent_node_path, child_name)
@@ -66,11 +52,10 @@ def get_highest_resolution(megascans_folder_scan): # i.e. ONLY maps don't have t
             pass
 
     if len(resolution_list) == 0:
-        highest_resolution = 2048 # default resolution. Perhaps this should be decided elsewhere
+        return None # I think that's the cleanest than returning a default resolution (let that be decided elsewhere)
     else:
-        highest_resolution = max(a_list) * 1024
+        return max(a_list) * 1024
 
-    return highest_resolution
 
 
 def get_maps_of_name_type_and_res(file_scan, desired_map_name, file_extension_list = None, resolution_list = None): # in descending order
@@ -141,7 +126,7 @@ def replace_substring_with_count(a_string, substring_to_replace, count):
         count += 1
     return a_string, count
 
-def megascans_material_node_setup(rs_material_builder_node, map_name_and_node_setup_dict, map_name_and_export_paths_dict):
+def modify_megascans_material_node_setup(rs_material_builder_node, map_name_and_node_setup_dict, map_name_and_export_paths_dict):
     for map_name in map_name_and_export_paths_dict.keys(): # have to get keys again since htey've changed
         try:
             node_setup_string = map_name_and_node_setup_dict[map_name]
@@ -154,104 +139,124 @@ def megascans_material_node_setup(rs_material_builder_node, map_name_and_node_se
             string_processor(rs_material_builder_node, node_setup_string)
 
 
+
+
+class MegascansAsset: # this seems clean. Makes sense to make a class to hold all this information while interacting with the GUI (rather than pass it around or use global variables)
+    def __init__(self, megascans_asset_subnet):
+        # Gets all necessary nodes (TODO: identify exactly what nodes aren't retrieved here), the goal is that this also identifies if there's anything that'll stop Step 1, 2 and 3 from running (i.e. a Megascans Asset that has been modified)
+        self.asset_geometry_node, self.asset_material_node, self.file_node, self.transform_node, self.rs_material_builder_node, self.redshift_material_node = get_nodes(megascans_asset_subnet) # remember in tuple unpacking, any name can be used i.e. i've added on self
+        
+        self.megascans_asset_folder_path = os.path.dirname(file_node.parm("file").eval())
+        self.megascans_asset_name = get_megascans_asset_name(megascans_asset_folder_path)
+        
+        self.file_scan = get_file_scan(megascans_asset_folder_path)
+
+        # Executing of the above with no errors means it's confirmed it's a megascans asset, and should be time to call the UI. Perhaps edit the above error code to throw a hou.ui.displayMessage if anything goes wrong (rather than the existing exceptions) - maybe pull this off with a try except?
+
+    def execute_fix(self, polyreduce_percentage_float, displacement_type_str, displacement_resolution_str, use_temp_displacement_bool): # can't think of a better name
+        # The following is all housed in the below subnet called Subnet
+        subnet_node = megascans_asset_subnet.createNode("subnet", "Subnet") # Feel free to change. 
+
+        #-----------------------------------------------
+        # Step 1) Make Custom LOD
+        #print("Step 1 begins")
+
+        customlod_name = megascans_asset_name + "_LOD_custom_{}percent.fbx".format(polyreduce_percentage_float)
+        customlod_path = os_path_join_fix(megascans_asset_folder_path, customlod_name)
+
+        highpoly_name = get_maps_of_name_type_and_res(self.file_scan, "High", file_extension_list = ".fbx")[0] # pick best from sorted, which is at index 0
+        highpoly_path = os_path_join_fix(megascans_asset_folder_path, highpoly_name)
+        
+        a_lod_object = LOD(highpoly_path, polyreduce_percentage_float, customlod_path)
+        a_lod_object.create_in_houdini(subnet_node)
+
+        #-----------------------------------------------
+        # Step 2) Bake Custom Maps, and give dictionary with their map names and export paths
+        #print("Step 2 begins")
+        
+        maps_resolution_x = 2048
+        maps_resolution_y = 2048
+
+        maps_to_bake_dict = Bake.maps_to_bake_dict_template
+        maps_to_bake_dict["Displacement"] = True
+        maps_to_bake_dict["Vector Displacement"] = True
+
+        a_bake_object = Bake(highpoly_path, customlod_path, maps_to_bake_dict, maps_resolution_x, maps_resolution_y, megascans_asset_folder_path)
+        map_name_export_paths_dict = a_bake_object.create_in_houdini(subnet_node)
+
+        #-----------------------------------------------
+        # Step 3) Configure and Edit Megascans Material's Node Setup (enable tessalation, displacement etc. and edit node setup)
+        #print("Step 3 begins")
+
+
+        
+        # Enable Tessellation, Displacement, and set Displacement Scale
+        asset_geometry_node.parm("RS_objprop_rstess_enable").set(1)
+        asset_geometry_node.parm("RS_objprop_displace_enable").set(1)
+        displacement_scale = transform_node.parm("scale").eval() # retrieved from transform_node after file import
+        asset_geometry_node.parm("RS_objprop_displace_scale").set(displacement_scale)
+
+
+        # Create Bump Blender (note, I have not changed layer blend weights like I did last time!)
+        string_processor(rs_material_builder_node, "cBumpBlender-bump_blender i0 e{} i2".format(redshift_material_node.name()))
+        current_bump_blender_layer = 0 # assuming 'Base' on BumpBlender doesn't need to be used
+
+
+        # Hardcoded logic
+        map_name_and_export_paths_dict_keys = map_name_and_export_paths_dict.keys() # so I don't have to get the keys again (probably not worth it)
+        if "Vector Displacement" in map_name_and_export_paths_dict_keys and "Displacement" in map_name_and_export_paths_dict_keys: # if both there, only set up Vector Displacement
+            map_name_and_export_paths_dict.pop("Displacement") 
+
+        if "Normal" in map_name_and_export_paths_dict_keys:
+            for child in rs_material_builder_node.children(): # destroy the legacy normal map
+                if child.type().name() == "redshift::NormalMap":
+                    child.destroy()
+                    break
+
+        # Configure Map Name and Node Setup Dict
+        map_name_and_node_setup_dict = dict()
+        map_name_and_node_setup_dict["Displacement"] = "@edisplacement!tex0:{export_path} @eDisplacement1!map_encoding:1"
+        map_name_and_node_setup_dict["Vector Displacement"] = "@edisplacement!tex0:{export_path} @eDisplacement1!map_encoding:0"
+        #map_name_and_node_setup_dict["Bump Map"] = "cTextureSampler-bump!tex0:{export_path}!color_multiplierr:0.2!color_multiplierg:0.2!color_multiplierb:0.2 i0 cBumpMap-bump_for_bump i0 ebump_for_bump i0 ebump_blender nbaseInput{bump_blender_layer}"
+        #map_name_and_node_setup_dict["Normal"] = "cNormalMap-normal!tex0:{export_path} i0 cBumpMap-bump_for_normal!inputType:1 i0 ebump_for_normal i0 ebump_blender nbumpInput{bump_blender_layer}"
+
+        # Edit Megascans Material's Node Setup
+        modify_megascans_material_node_setup(rs_material_builder_node, map_name_and_node_setup_dict, map_name_and_export_paths_dict)
+
+
+        #-----------------------------------------------
+        # Final touches
+
+        file_node.parm("file").set(customlod_path)
+
+        # Layout the subnet that holds everything, and set display flag to off
+        subnet_node.layoutChildren()
+        subnet_node.setDisplayFlag(False)
+        
+        # Layout the thing that holds the subnet
+        selected_node.layoutChildren()
+
+
+
 def main():
-    print("\n----------- Starting -----------")
     selected_node_list = hou.selectedNodes()
     if len(selected_node_list) != 1:
         raise Exception("Multiple nodes selected. Are you sure you've selected a single Megascans Asset Subnetwork?")
-    
+        
     selected_node = selected_node_list[0] # to access later on
     megascans_asset_subnet = selected_node # assumming
 
-    # Gets all necessary nodes (perhaps it's better to get the other ones that are needed later, so that atleast Step 1 and 2 can run)
+    megascans_asset_object = MegascansAsset(megascans_asset_subnet)
 
-    asset_geometry_node, asset_material_node, file_node, transform_node, rs_material_builder_node, redshift_material_node = get_nodes(megascans_asset_subnet)
+    ui = MegascansFixerDialog(megascans_asset_object)
+    ui.show()
 
-    megascans_asset_folder_path = os.path.dirname(file_node.parm("file").eval())
-
-    megascans_asset_name = get_megascans_asset_name(megascans_asset_folder_path)
-    file_scan = get_file_scan(megascans_asset_folder_path)
+    # the above handles calling the 'execute_fix' method
 
 
-    # The following is all housed in the below subnet called Subnet
-    subnet_node = megascans_asset_subnet.createNode("subnet", "Subnet") # Feel free to change. 
-
-    #-----------------------------------------------
-    # Step 1) Make Custom LOD
-    #print("Step 1 begins")
-
-    polyreduce_percentage = 50
-    customlod_name = megascans_asset_name + "_LOD_custom_{}percent.fbx".format(polyreduce_percentage)
-    customlod_path = os_path_join_fix(megascans_asset_folder_path, customlod_name)
-
-    highpoly_name = get_maps_of_name_type_and_res(file_scan, "High", file_extension_list = ".fbx")[0] # pick best from sorted, which is at index 0
-    highpoly_path = os_path_join_fix(megascans_asset_folder_path, highpoly_name)
-    
-    a_lod_object = LOD(highpoly_path, polyreduce_percentage, customlod_path)
-
-    a_lod_object.create_in_houdini(subnet_node)
-
-    #-----------------------------------------------
-    # Step 2) Bake Custom Maps, and give dictionary with their map names and export paths
-    #print("Step 2 begins")
-    
-    maps_resolution_x = 2048
-    maps_resolution_y = 2048
-
-    maps_to_bake_dict = Bake.maps_to_bake_dict_template
-    maps_to_bake_dict["Displacement"] = True
-    maps_to_bake_dict["Vector Displacement"] = True
-
-    a_bake_object = Bake(highpoly_path, customlod_path, maps_to_bake_dict, maps_resolution_x, maps_resolution_y, megascans_asset_folder_path)
-    map_name_export_paths_dict = a_bake_object.create_in_houdini(subnet_node)
-
-    #-----------------------------------------------
-    # Step 3) Node setup
-    #print("Step 3 begins")
 
 
-    
-    # Enable Tessellation, Displacement, and set Displacement Scale
-    asset_geometry_node.parm("RS_objprop_rstess_enable").set(1)
-    asset_geometry_node.parm("RS_objprop_displace_enable").set(1)
-    displacement_scale = transform_node.parm("scale").eval() # retrieved from transform_node after file import
-    asset_geometry_node.parm("RS_objprop_displace_scale").set(displacement_scale)
 
-    # Create Bump Blender (note, I have not changed layer blend weights like I did last time!)
-    string_processor(rs_material_builder_node, "cBumpBlender-bump_blender i0 e{} i2".format(redshift_material_node.name()))
-    current_bump_blender_layer = 0 # assuming 'Base' on BumpBlender doesn't need to be used
-
-    # Hardcoded logic
-    map_name_and_export_paths_dict_keys = map_name_and_export_paths_dict.keys() # so I don't have to get the keys again (probably not worth it)
-    if "Vector Displacement" in map_name_and_export_paths_dict_keys and "Displacement" in map_name_and_export_paths_dict_keys: # if both there, only set up Vector Displacement
-        map_name_and_export_paths_dict.pop("Displacement") 
-
-    if "Normal" in map_name_and_export_paths_dict_keys:
-        for child in rs_material_builder_node.children(): # destroy the legacy normal map
-            if child.type().name() == "redshift::NormalMap":
-                child.destroy()
-                break
-
-    # Configure Node Setup Dict
-    map_name_and_node_setup_dict = dict()
-    map_name_and_node_setup_dict["Displacement"] = "@edisplacement!tex0:{export_path} @eDisplacement1!map_encoding:1"
-    map_name_and_node_setup_dict["Vector Displacement"] = "@edisplacement!tex0:{export_path} @eDisplacement1!map_encoding:0"
-    #map_name_and_node_setup_dict["Bump Map"] = "cTextureSampler-bump!tex0:{export_path}!color_multiplierr:0.2!color_multiplierg:0.2!color_multiplierb:0.2 i0 cBumpMap-bump_for_bump i0 ebump_for_bump i0 ebump_blender nbaseInput{bump_blender_layer}"
-    #map_name_and_node_setup_dict["Normal"] = "cNormalMap-normal!tex0:{export_path} i0 cBumpMap-bump_for_normal!inputType:1 i0 ebump_for_normal i0 ebump_blender nbumpInput{bump_blender_layer}"
-
-
-    megascans_material_node_setup(rs_material_builder_node, map_name_and_node_setup_dict, map_name_and_export_paths_dict)
-
-
-    #-----------------------------------------------
-    file_node.parm("file").set(customlod_path)
-
-    # Layout the subnet that holds everything, and set display flag to off
-    subnet_node.layoutChildren()
-    subnet_node.setDisplayFlag(False)
-    
-    # Layout the thing that holds the subnet
-    selected_node.layoutChildren()
 
 main()
 

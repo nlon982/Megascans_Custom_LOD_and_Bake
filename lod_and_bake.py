@@ -61,7 +61,7 @@ class Bake:
         baketexture_node = ropnet_node.createNode("baketexture::3.0", "bake_texture")
         string_processor(ropnet_node, "@ebake_texture!camera:{}!vm_uvunwrapresx:int{}!vm_uvunwrapresy:int{}!vm_uvobject1:{}!vm_uvhires1:{}!vm_uvoutputpicture1:{}!vm_extractimageplanesformat:OpenEXR!vm_extractremoveintermediate:+!vm_uv_unwrap_method:int2".format(a_camera.path(), self.resolution_tuple[0], self.resolution_tuple[1], lod_geo_node.path(), highpoly_geo_node.path(), self.export_path.replace(" ", "%20"))) #TODO
                 
-        # Iterate through maps_to_bake_dict, ticking parameters of corrsponding maps which have True in the dict
+        # Iterate through maps_to_bake_dict, ticking parameters of corresponding maps which have True in the dict
         for map_name in self.maps_to_bake_dict.keys():
             parameter_name = self.houdini_parameter_names[map_name]
             corresponding_parm = baketexture_node.parm(parameter_name)
@@ -92,13 +92,10 @@ class LOD:
 
 
     def create_in_houdini(self, housing_node): # includes executing
-        print("a")
         custom_lod_node = housing_node.createNode("geo", "Custom_LOD")
-        print("b")
         string_processor(custom_lod_node,"cfile-file_node i0 cconvert-convert_node i0 econvert_node i0 cpolyreduce::2.0-polyreduce_node i0 epolyreduce_node i0 crop_fbx-rop_fbx_node i0")
         
         hou.hipFile.save() # save hip file before render
-        print("c")
         string_processor(custom_lod_node, "@efile_node!file:{} @epolyreduce_node!percentage:int{}!reducepassedtarget:+!originalpoints:+ @erop_fbx_node!sopoutput:{}!execute:=".format(self.highpoly_path.replace(" ", "%20"), self.polyreduce_percentage, self.export_path.replace(" ", "%20")))
 
 
