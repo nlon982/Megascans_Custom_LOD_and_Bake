@@ -40,6 +40,10 @@ There's no point in maps_to_bake_dict having maps it doesn't want to bake in the
 
 
 
+I have used displacement_resolution as the resolution for all maps, and it's so up in the air how 'other maps to bake dict' should behave.
+
+
+
 
 
 THEN look at the write up I can do for big framework (pictures explaining i.e. the ones I sent to kyle / muggy, perhaps a video of it in action)

@@ -1,8 +1,21 @@
 import os
 import hou
+
 from big_framework import string_processor
 
-from megascans_fixer import os_path_join_fix
+#from megascans_fixer import os_path_join_fix why isn't this working?
+
+def os_path_join_fix(*args): # in the version of Python that Houdini has, os_path_join_fix is broken
+    a_path = ""
+    if len(args) == 0:
+        return a_path
+    else:
+        slash = os.path.sep
+        for item in args:
+            a_path += item + slash
+
+        return a_path[:-1] # so there isn't a final slash in the end
+
 
 def check_node_exists(a_node_path): # I was thinking of doing something like this. Currently I haven't used this - still deciding
     a_node = hou.node(a_node_path)
@@ -18,23 +31,26 @@ class Bake:
     map_name_and_houdini_parameter_name_dict = {"Tangent-Space Normal" : "vm_quickplane_Nt", "Displacement" : "vm_quickplane_Ds", "Vector Displacement" : "vm_quickplane_Vd", "Tangent-Space Vector Displacement" : "vm_quickplane_Vdt", "Occlusion" : "vm_quickplane_Oc", "Cavity" : "vm_quickplane_Cv", "Thickness" : "vm_quickplane_Th", "Curvature" : "vm_quickplane_Cu"} 
     
     maps_to_bake_dict_template = dict()
-    for key in map_name_and_houdini_parameter_name_dict.keys(): # less repeating code by generating it here
-        maps_to_bake_dict_template[key] = False
+    for map_name in map_name_and_houdini_parameter_name_dict.keys(): # less repeating code by generating it here
+        maps_to_bake_dict_template[map_name] = False
 
     # recall that the benefit of class variables is that they aren't created for each instance all over again
     # + they can be accessed without instantiating the class
 
 
-    def __init__(self, highpoly_path, lod_path, maps_to_bake_dict, resolution_x, resolution_y, export_directory): # I haven't given a choice of export name, because that adds so much complexity
+    def __init__(self, highpoly_path, lod_path, maps_to_bake_dict, bake_resolution_x, bake_resolution_y, export_directory, export_name_prefix = ""): # I haven't given a choice of export name, because that adds so much complexity
+        # export_name_prefix is optional, and very worth it (a means to identify what you've baked other than the export_directory)        
+        # instead of making the Bake class tailored to megascans asset (which stops this from being a general thing)
+
         check_path(highpoly_path)
         self.highpoly_path = highpoly_path # e.g. "C:/User/highpoly.fbx"
 
         check_path(lod_path)
         self.lod_path = lod_path # e.g. "C:/User/lod.fbx"
 
-        self.resolution_tuple = (resolution_x, resolution_y)
+        self.bake_resolution_tuple = (bake_resolution_x, bake_resolution_y)
 
-        self.export_path = os_path_join_fix(export_directory, "custom_baking_%(CHANNEL)s.rat") # this is what the bake_texture node uses. Hardcoded along with export_name below
+        self.export_path = os_path_join_fix(export_directory, "{}_custom_baking_%(CHANNEL)s.rat".format(export_name_prefix)) # this is what the bake_texture node uses. Hardcoded along with export_name below
 
         # Setup map_name_and_export_paths_dict
         
@@ -43,7 +59,8 @@ class Bake:
 
             if maps_to_bake_dict[map_name] == True:
                 parameter_name = self.map_name_and_houdini_parameter_name_dict[map_name]
-                export_name = "custom_baking_{}.exr".format(parameter_name.split("_")[-1]) # i.e. if the parameter name is 'vm_quickplane_Ds', the render token, %(CHANNEL)s, is 'Ds'
+                export_name = "{}_custom_baking_{}.exr".format(export_name_prefix, parameter_name.split("_")[-1]) # hardcoded to match self.export_path
+                #^  parameter_name.split("_")[-1], e.g. if the parameter name is 'vm_quickplane_Ds', the render token, %(CHANNEL)s, is 'Ds'
                 self.map_name_and_export_paths_dict[map_name] = os_path_join_fix(export_directory, export_name)
 
         self.maps_to_bake_dict = maps_to_bake_dict
@@ -60,12 +77,12 @@ class Bake:
 
         # Set up camera
         a_camera = housing_node.createNode("cam", "temp_camera")
-        string_processor(housing_node, "@etemp_camera!tx:int0!ty:int0!tz:int0!rx:int0!ry:int0!rz:int0!px:int0!py:int0!pz:int0!prx:int0!pry:int0!prz:int0!resx:int{}!resy:int{}".format(self.resolution_tuple[0], self.resolution_tuple[1])) # gross? perhaps set to default on t, r, p, pr is cleaner. Yep, definitely is.
+        string_processor(housing_node, "@etemp_camera!tx:int0!ty:int0!tz:int0!rx:int0!ry:int0!rz:int0!px:int0!py:int0!pz:int0!prx:int0!pry:int0!prz:int0!resx:int{}!resy:int{}".format(self.bake_resolution_tuple[0], self.bake_resolution_tuple[1])) # gross? perhaps set to default on t, r, p, pr is cleaner. Yep, definitely is.
         
         # Set  up bake texture node
         ropnet_node = housing_node.createNode("ropnet", "ropnet_for_baking")
         baketexture_node = ropnet_node.createNode("baketexture::3.0", "bake_texture")
-        string_processor(ropnet_node, "@ebake_texture!camera:{}!vm_uvunwrapresx:int{}!vm_uvunwrapresy:int{}!vm_uvobject1:{}!vm_uvhires1:{}!vm_uvoutputpicture1:{}!vm_extractimageplanesformat:OpenEXR!vm_extractremoveintermediate:+!vm_uv_unwrap_method:int2".format(a_camera.path(), self.resolution_tuple[0], self.resolution_tuple[1], lod_geo_node.path(), highpoly_geo_node.path(), self.export_path.replace(" ", "%20"))) #TODO
+        string_processor(ropnet_node, "@ebake_texture!camera:{}!vm_uvunwrapresx:int{}!vm_uvunwrapresy:int{}!vm_uvobject1:{}!vm_uvhires1:{}!vm_uvoutputpicture1:{}!vm_extractimageplanesformat:OpenEXR!vm_extractremoveintermediate:+!vm_uv_unwrap_method:int2".format(a_camera.path(), self.bake_resolution_tuple[0], self.bake_resolution_tuple[1], lod_geo_node.path(), highpoly_geo_node.path(), self.export_path.replace(" ", "%20"))) #TODO
                 
         # Iterate through maps_to_bake_dict, ticking parameters of corresponding maps which have True in the dict
         for map_name in self.maps_to_bake_dict.keys():
@@ -105,20 +122,3 @@ class LOD:
         
         hou.hipFile.save() # save hip file before render
         string_processor(custom_lod_node, "@efile_node!file:{} @epolyreduce_node!percentage:{}!reducepassedtarget:+!originalpoints:+ @erop_fbx_node!sopoutput:{}!execute:=".format(self.highpoly_path.replace(" ", "%20"), self.polyreduce_percentage, self.export_path.replace(" ", "%20")))
-
-
-
-"""
-highpoly_path = r"C:\Users\Nathan Longhurst\Documents\Megascans Library\Downloaded\3d\rock_assembly_siEoZ\siEoZ_High.fbx"
-export_path = r"C:\Users\Nathan Longhurst\Documents\Megascans Library\Downloaded\3d\rock_assembly_siEoZ\lod_test.fbx"
-a_lod_object = LOD(highpoly_path, 50, export_path)
-a_lod_object.create_in_houdini(hou.node("/obj"))
-
-to_bake_dict = Bake.to_bake_dict_template
-for key in to_bake_dict.keys():
-    to_bake_dict[key] = True
-print(to_bake_dict)
-    
-a_bake_object = Bake(highpoly_path, export_path, (2048, 2048), to_bake_dict, r"C:\Users\Nathan Longhurst\Documents\Megascans Library\Downloaded\3d\rock_assembly_siEoZ")
-print(a_bake_object.create_in_houdini(hou.node("/obj")))
-"""

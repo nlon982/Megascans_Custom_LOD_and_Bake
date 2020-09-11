@@ -23,7 +23,7 @@ def os_path_join_fix(*args): # in the version of Python that Houdini has, os_pat
         for item in args:
             a_path += item + slash
 
-    return a_path[:-1] # so there isn't a final slash in the end
+        return a_path[:-1] # so there isn't a final slash in the end
 
 
 def get_file_scan(a_path): # versus 'get_maps' which is risky since it requires knowing all the possible map names (instead, get all files, and take maps you want that exist with get_maps_of_name_type_and_res
@@ -44,15 +44,22 @@ def get_child_from_parent_node(parent_node_path, child_name): # exception handli
 def get_file_extension(file_path_or_name):
     return os.path.splitext(file_path_or_name)[1]
 
+def get_megascans_resolution_str_from_resolution(resolution): # e.g. given 4 * 1024, return "4K"
+    return str(resolution * 1024) + "K"
+
+def get_resolution_from_megascans_resolution_str(megascans_resolution_str): # given e.g. "4K", return 4 * 1024. Good to have a function because this logic could change in the future
+    return int(megascans_resolution_str[:-1]) * 1024
+
+
 def get_megascans_resolution(file_path_or_name, return_int = False):
     first_underscore_index = file_name.find("_")
     second_underscore_index = first_underscore_index + 1 + file_name[first_underscore_index + 1:].find("_")
-    megascans_resolution_string = file_name[first_underscore_index + 1: second_underscore_index] # e.g. "4K"
+    megascans_resolution_str = file_name[first_underscore_index + 1: second_underscore_index] # e.g. "4K"
 
     if return_int == False:
-        return megascans_resolution_string
+        return megascans_resolution_str
     else:
-        return int(megascans_resolution_string[:-1]) # e.g. 4
+        return get_resolution_from_megascans_resolution_str(megascans_resolution_str) # should I remove this functionality and leave it to the user?
 
 
 def get_highest_resolution(megascans_folder_scan): # i.e. ONLY maps don't have to be passed
@@ -169,7 +176,7 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
 
         # Executing of the above with no errors means it's confirmed it's a megascans asset, and should be time to call the UI. Perhaps edit the above error code to throw a hou.ui.displayMessage if anything goes wrong (rather than the existing exceptions) - maybe pull this off with a try except?
 
-    def execute_fix(self, polyreduce_percentage_float, displacement_type_str, displacement_resolution_str, use_temp_displacement_bool): # can't think of a better name
+    def execute_fix(self, polyreduce_percentage_float, maps_to_bake_dict, bake_resolution_str, use_temp_displacement_bool): # can't think of a better name
         # Step 1 and 2 are housed in this subnet node
         fix_subnet_node = self.megascans_asset_subnet.createNode("subnet", "Megascans_Fixer_Subnet") # Feel free to change name
 
@@ -190,14 +197,16 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         # Step 2) Bake Custom Maps, and give dictionary with their map names and export paths
         #print("Step 2 begins")
         
-        maps_resolution_x = 2048
-        maps_resolution_y = 2048
+        # for clarity
+        bake_resolution_x_and_y = get_resolution_from_megascans_resolution_str(bake_resolution_str)
 
-        maps_to_bake_dict = lod_and_bake.Bake.maps_to_bake_dict_template
-        maps_to_bake_dict["Displacement"] = True
-        maps_to_bake_dict["Vector Displacement"] = True
+        #maps_to_bake_dict = lod_and_bake.Bake.maps_to_bake_dict_template
+        #maps_to_bake_dict["Displacement"] = True
+        #maps_to_bake_dict["Vector Displacement"] = True
+        #The above has been commented out because it is now being passed in by the UI
 
-        a_bake_object = lod_and_bake.Bake(highpoly_path, customlod_path, maps_to_bake_dict, maps_resolution_x, maps_resolution_y, self.megascans_asset_folder_path)
+        export_name_prefix = self.megascans_asset_name + "_" + bake_resolution_str
+        a_bake_object = lod_and_bake.Bake(highpoly_path, customlod_path, maps_to_bake_dict, bake_resolution_x_and_y, bake_resolution_x_and_y, self.megascans_asset_folder_path, export_name_prefix = export_name_prefix)
         map_name_and_export_paths_dict = a_bake_object.create_and_execute_in_houdini(fix_subnet_node)
 
         #-----------------------------------------------
