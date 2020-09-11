@@ -22,10 +22,10 @@ class MegascansFixerDialog(HDialog):
                 # using conventions that i'm coming up with to keep this organised
                 # assigning a Gadget to self.variablename (a personalised variable name too) when I know i'll access it later
                 
-                # Prep
-
+                #--------------Prep
                 self.displacement_type_menu_list = ["Displacement", "Vector Displacement"]
-                self.displacement_resolution_menu_list = ["8K", "4K", "2K", "1K"]
+
+                self.map_resolution_menu_list = ["8K", "4K", "2K", "1K"]
 
 
                 #-------------- General
@@ -102,34 +102,32 @@ class MegascansFixerDialog(HDialog):
                 self.displacement_type_menu = HStringMenu("displacement_type_menu", "Displacement Map Type", self.displacement_type_menu_list)
                 other_column_layout2.addGadget(self.displacement_type_menu)
 
-                self.displacement_resolution_menu = HStringMenu("displacement_resolution_menu", "Displacement Map Resolution", self.displacement_resolution_menu_list)
-                other_column_layout2.addGadget(self.displacement_resolution_menu)
-                
-                self.use_temp_displacement_checkbox = HCheckbox("use_temp_displacement_checkbox", "Temporarily use 1K Resoluton while above is baked (does nothing if 1K is chosen above)")
-                self.use_temp_displacement_checkbox.setValue("0") # because it's not set to ?anything? by default (but should be set to 0 as that corresponds to unticked - so doing it here), which is FUCKED
-                other_column_layout2.addGadget(self.use_temp_displacement_checkbox)
+
                 
                 # sep
                 self.addGadget(sep)
 
-                #-------------- Other baking options
-                label2 = HLabel("Other Baking options:")
-                self.addGadget(label2)
+                #-------------- Other maps to bake
+                label3 = HLabel("Other Maps to Bake:")
+                self.addGadget(label3)
 
 
-                other_baking_options_row_layout = HRowLayout()
-                self.addLayout(other_baking_options_row_layout)
+                other_maps_row_layout = HRowLayout()
+                self.addLayout(other_maps_row_layout)
 
 
                 space_column_layout3 = HColumnLayout()
                 space_column_layout3.setAttributes(width = 0.25)
-                other_baking_options_row_layout.addLayout(space_column_layout3)
+                other_maps_row_layout.addLayout(space_column_layout3)
+
+                other_column_layout3 = HColumnLayout()
+                other_maps_row_layout.addLayout(other_column_layout3) 
 
 
-                other_baking_options_collapser_layout = HCollapserLayout(label = "", layout = "vertical")
-                other_baking_options_row_layout.addLayout(other_baking_options_collapser_layout)
+                other_maps_collapser_layout = HCollapserLayout(label = "Collapser", layout = "vertical")
+                other_column_layout3.addLayout(other_maps_collapser_layout)
 
-                
+
                 map_names_list = list(lod_and_bake.Bake.map_name_and_houdini_parameter_name_dict.keys())
                 map_names_list.remove("Displacement") # delete because used above
                 map_names_list.remove("Vector Displacement") # ^
@@ -141,11 +139,36 @@ class MegascansFixerDialog(HDialog):
                         a_checkbox = HCheckbox(checkbox_name, map_name)
                         a_checkbox.setValue("0") # this is the fix re: huilib having problems with the default value
 
-                        other_baking_options_collapser_layout.addGadget(a_checkbox)
+                        other_maps_collapser_layout.addGadget(a_checkbox)
                         
                         self.other_maps_to_bake_checkbox_dict[map_name] = a_checkbox # save for a rainy day
+
+
+                self.addGadget(sep)
+
+                #-------------- Other baking options
+                label4 = HLabel("Baking options:")
+                self.addGadget(label4)
+
+
+                other_baking_options_row_layout = HRowLayout()
+                self.addLayout(other_baking_options_row_layout)
+
+
+                space_column_layout4 = HColumnLayout()
+                space_column_layout4.setAttributes(width = 0.25)
+                other_baking_options_row_layout.addLayout(space_column_layout4)
+
+
+                other_column_layout4 = HColumnLayout()
+                other_baking_options_row_layout.addLayout(other_column_layout4) 
+
+                self.map_resolution_menu = HStringMenu("map_resolution_menu", "Bake Resolution", self.map_resolution_menu_list)
+                other_column_layout4.addGadget(self.map_resolution_menu)
                 
-                #hou.ui.displayMessage("hi")
+                self.use_temp_resolution_checkbox = HCheckbox("use_temp_resolution_checkbox", "Temporarily bake and use 1K Resoluton while above resolution is baked (does nothing if 1K is chosen above)")
+                self.use_temp_resolution_checkbox.setValue("0") # because it's not set to ?anything? by default (but should be set to 0 as that corresponds to unticked - so doing it here), which is FUCKED
+                other_column_layout4.addGadget(self.use_temp_resolution_checkbox)
 
                 # sep
                 self.addGadget(sep)
@@ -173,24 +196,21 @@ class MegascansFixerDialog(HDialog):
 
                 self.blah()
 
+                # perhaps it's good the ui freezes until the lod has finished baking (the user wouldn't be able to do anything anyway?), that way the user knows something relevant to the tool is happening?
                 #a_thread_one = threading.Thread(target = self.close)
                 #a_thread_one.start()
                 
                 #a_thread_two = threading.Thread(target = self.blah)
                 #a_thread_two.start()
 
+                # threading doesn't seem to get the UI to shut
+
         def blah(self):
                 # Get information from UI (I have types in the variable names for the sake of clarity)
                 polyreduce_percentage_float = float(self.polyreduce_percentage_slider.getValue())
                 
                 displacement_type_str = self.displacement_type_menu_list[self.displacement_type_menu.getValue()]
-                displacement_resolution_str = self.displacement_resolution_menu_list[self.displacement_resolution_menu.getValue()]
 
-                use_temp_displacement_checkbox_value = self.use_temp_displacement_checkbox.isChecked() # checkbox_value is "0" or "1", but I want it False or True for clarity
-                if use_temp_displacement_checkbox_value == "0": # 0 corresponds to unticked, and 1 corresponds to ticked
-                        use_temp_displacement_bool = False
-                else:
-                        use_temp_displacement_bool = True
 
                 # construct maps_to_bake_dict
                 maps_to_bake_dict = lod_and_bake.Bake.maps_to_bake_dict_template.copy() # dictionaries are mutable, so need to make a copy as to not modify the original!
@@ -207,11 +227,21 @@ class MegascansFixerDialog(HDialog):
                         maps_to_bake_dict[map_name] = bake_bool
                         
 
+
+                # regarding resolution
+                map_resolution_str = self.map_resolution_menu_list[self.map_resolution_menu.getValue()]
+
+                use_temp_resolution_checkbox_value = self.use_temp_resolution_checkbox.isChecked() # checkbox_value is "0" or "1", but I want it False or True for clarity
+                if use_temp_resolution_checkbox_value == "0": # 0 corresponds to unticked, and 1 corresponds to ticked
+                        use_temp_resolution_bool = False
+                else:
+                        use_temp_resolution_bool = True
+
                 # for testing
-                #message_string = "polyreduce percentage: {}\ndisplacement type: {}\ndisplacement resolution: {}\nuse_temp_displacement: {}\n\nmaps_to_bake_dict: {}".format(polyreduce_percentage_float, displacement_type_str, displacement_resolution_str, use_temp_displacement_bool, maps_to_bake_dict)
+                #message_string = "polyreduce percentage: {}\ndisplacement type: {}\nmap resolution: {}\nuse_temp_resolution: {}\n\nmaps_to_bake_dict: {}".format(polyreduce_percentage_float, displacement_type_str, map_resolution_str, use_temp_resolution_bool, maps_to_bake_dict)
                 #hou.ui.displayMessage(message_string)
 
                 # using displacement resolution as resolution for all maps you ask it to bake! I need to a discussion with Muggy on how it should be dealt with
-                self.megascans_asset_object.execute_fix(polyreduce_percentage_float, maps_to_bake_dict, displacement_resolution_str, use_temp_displacement_bool)
+                self.megascans_asset_object.execute_fix(polyreduce_percentage_float, maps_to_bake_dict, map_resolution_str, use_temp_resolution_bool)
 
                 

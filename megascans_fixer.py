@@ -280,6 +280,8 @@ def main():
         hou.ui.displayMessage("Error Occured:\n\n{}\n\nPlease try again".format(exception))
         raise SystemExit # good practice way to exit according to https://stackoverflow.com/questions/19747371/python-exit-commands-why-so-many-and-when-should-each-be-used
 
+    megascans_asset_subnet.setDisplayFlag(True) # baking requires its display flag is visible
+
     ui = ui_attempt.MegascansFixerDialog(megascans_asset_object)
     ui.show()
 
