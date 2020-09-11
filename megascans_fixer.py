@@ -14,12 +14,12 @@ reload(lod_and_bake)
 
 
 
-def os_path_join_fix(*args): # in the version of Python that Houdini has, os_path_join_fix is broken
+def os_path_join_fix(*args): # because Houdini likes to use forward slashes. Note, this is just cosmetic, it doesn't have an effect.
     a_path = ""
     if len(args) == 0:
         return a_path
     else:
-        slash = os.path.sep
+        slash = "/" # if Houdini starts uses backslashes (or whatever the os's slashes are) change back to os.path.sep
         for item in args:
             a_path += item + slash
 
@@ -200,12 +200,7 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         # for clarity
         bake_resolution_x_and_y = get_resolution_from_megascans_resolution_str(bake_resolution_str)
 
-        #maps_to_bake_dict = lod_and_bake.Bake.maps_to_bake_dict_template
-        #maps_to_bake_dict["Displacement"] = True
-        #maps_to_bake_dict["Vector Displacement"] = True
-        #The above has been commented out because it is now being passed in by the UI
-
-        export_name_prefix = self.megascans_asset_name + "_" + bake_resolution_str
+        export_name_prefix = self.megascans_asset_name + "_" + bake_resolution_str + "_"
         a_bake_object = lod_and_bake.Bake(highpoly_path, customlod_path, maps_to_bake_dict, bake_resolution_x_and_y, bake_resolution_x_and_y, self.megascans_asset_folder_path, export_name_prefix = export_name_prefix)
         map_name_and_export_paths_dict = a_bake_object.create_and_execute_in_houdini(fix_subnet_node)
 
@@ -267,7 +262,7 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         # ^ as per: https://forums.odforce.net/topic/12406-getting-the-current-active-network-editor-pane/, doesn't seem like there's a better way to do it nowadays
         network_editor.setCurrentNode(self.megascans_asset_subnet)
 
-        hou.ui.displayMessage("Done successfully!") # feel free to change
+        hou.ui.displayMessage("Done successfully! Maps could be baking in the background still") # perhaps put this in the post render script for the baking
 
 
 

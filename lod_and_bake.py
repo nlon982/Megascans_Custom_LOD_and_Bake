@@ -3,18 +3,7 @@ import hou
 
 from big_framework import string_processor
 
-#from megascans_fixer import os_path_join_fix why isn't this working?
-
-def os_path_join_fix(*args): # in the version of Python that Houdini has, os_path_join_fix is broken
-    a_path = ""
-    if len(args) == 0:
-        return a_path
-    else:
-        slash = os.path.sep
-        for item in args:
-            a_path += item + slash
-
-        return a_path[:-1] # so there isn't a final slash in the end
+from megascans_fixer import * # importantly, includes os_path_join_fix
 
 
 def check_node_exists(a_node_path): # I was thinking of doing something like this. Currently I haven't used this - still deciding
@@ -50,7 +39,7 @@ class Bake:
 
         self.bake_resolution_tuple = (bake_resolution_x, bake_resolution_y)
 
-        self.export_path = os_path_join_fix(export_directory, "{}_custom_baking_%(CHANNEL)s.rat".format(export_name_prefix)) # this is what the bake_texture node uses. Hardcoded along with export_name below
+        self.export_path = os_path_join_fix(export_directory, "{}custom_baking_%(CHANNEL)s.rat".format(export_name_prefix)) # this is what the bake_texture node uses. Hardcoded along with export_name below
 
         # Setup map_name_and_export_paths_dict
         
@@ -59,7 +48,7 @@ class Bake:
 
             if maps_to_bake_dict[map_name] == True:
                 parameter_name = self.map_name_and_houdini_parameter_name_dict[map_name]
-                export_name = "{}_custom_baking_{}.exr".format(export_name_prefix, parameter_name.split("_")[-1]) # hardcoded to match self.export_path
+                export_name = "{}custom_baking_{}.exr".format(export_name_prefix, parameter_name.split("_")[-1]) # hardcoded to match self.export_path
                 #^  parameter_name.split("_")[-1], e.g. if the parameter name is 'vm_quickplane_Ds', the render token, %(CHANNEL)s, is 'Ds'
                 self.map_name_and_export_paths_dict[map_name] = os_path_join_fix(export_directory, export_name)
 

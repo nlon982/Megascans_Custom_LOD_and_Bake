@@ -208,10 +208,10 @@ class MegascansFixerDialog(HDialog):
                         
 
                 # for testing
-                message_string = "polyreduce percentage: {}\ndisplacement type: {}\ndisplacement resolution: {}\nuse_temp_displacement: {}\n\nmaps_to_bake_dict: {}".format(polyreduce_percentage_float, displacement_type_str, displacement_resolution_str, use_temp_displacement_bool, maps_to_bake_dict)
-                hou.ui.displayMessage(message_string)
+                #message_string = "polyreduce percentage: {}\ndisplacement type: {}\ndisplacement resolution: {}\nuse_temp_displacement: {}\n\nmaps_to_bake_dict: {}".format(polyreduce_percentage_float, displacement_type_str, displacement_resolution_str, use_temp_displacement_bool, maps_to_bake_dict)
+                #hou.ui.displayMessage(message_string)
 
                 # using displacement resolution as resolution for all maps you ask it to bake! I need to a discussion with Muggy on how it should be dealt with
-                #self.megascans_asset_object.execute_fix(polyreduce_percentage_float, maps_to_bake_dict, displacement_resolution_str, use_temp_displacement_bool)
+                self.megascans_asset_object.execute_fix(polyreduce_percentage_float, maps_to_bake_dict, displacement_resolution_str, use_temp_displacement_bool)
 
                 
