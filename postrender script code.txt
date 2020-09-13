@@ -1,0 +1,39 @@
+***FIRST POSTRENDER SCRIPT*** (includes second postrenders script)
+
+hou.ui.displayMessage("Finished 1K maps, these are configured to use while the higher res maps bake now!")
+
+baketexture_node = hou.node({baketexture_node_path})
+highres_bake_resolution_x_and_y = {highres_bake_resolution_x_and_y}
+
+baketexture_node.parm("resx").set(highres_bake_resolution_x_and_y)
+baketexture_node.parm("resy").set(highres_bake_resolution_x_and_y)
+
+
+a_string = 'rs_material_builder_node = hou.node({rs_material_builder_node_path})\nmaps_and_entry_info_of_export_path_dict = {maps_and_entry_info_of_export_path_dict}\nhigh_res_map_name_and_export_paths_dict = {high_res_map_name_and_export_paths_dict}\n\nfor map_name in maps_and_entry_info_of_export_path_dict.keys():\n    node_name, node_param_name = maps_and_entry_info_of_export_path_dict[map_name]\n    \n    a_node = hou.node(rs_material_builder_node.path() + "/" + node_name)\n    a_node.parm(node_param_name) = high_res_map_name_and_export_paths_dict[map_name]'
+baketexture_node.parm("postrender").set(a_string)
+
+hou.hipFile.save()
+baketexture_node.parm("execute").pressButton()
+
+
+in a line:
+'hou.ui.displayMessage("Finished 1K maps, these are configured to use while the higher res maps bake now!")\n\nbaketexture_node = hou.node({baketexture_node_path})\nhighres_bake_resolution_x_and_y = {highres_bake_resolution_x_and_y}\n\nbaketexture_node.parm("resx").set(highres_bake_resolution_x_and_y)\nbaketexture_node.parm("resy").set(highres_bake_resolution_x_and_y)\n\n\na_string = \'rs_material_builder_node = hou.node({rs_material_builder_node_path})\\nmaps_and_entry_info_of_export_path_dict = {maps_and_entry_info_of_export_path_dict}\\nhigh_res_map_name_and_export_paths_dict = {high_res_map_name_and_export_paths_dict}\\n\\nfor map_name in maps_and_entry_info_of_export_path_dict.keys():\\n    node_name, node_param_name = maps_and_entry_info_of_export_path_dict[map_name]\\n    \\n    a_node = hou.node(rs_material_builder_node.path() + "/" + node_name)\\n    a_node.parm(node_param_name) = high_res_map_name_and_export_paths_dict[map_name]\'\nbaketexture_node.parm("postrender").set(a_string)\n\nhou.hipFile.save()\nbaketexture_node.parm("execute").pressButton()'
+---
+***SECOND POSTRENDER SCRIPT***
+
+rs_material_builder_node = hou.node({rs_material_builder_node_path})
+maps_and_entry_info_of_export_path_dict = {maps_and_entry_info_of_export_path_dict}
+high_res_map_name_and_export_paths_dict = {high_res_map_name_and_export_paths_dict}
+
+for map_name in maps_and_entry_info_of_export_path_dict.keys():
+    node_name, node_param_name = maps_and_entry_info_of_export_path_dict[map_name]
+    
+    a_node = hou.node(rs_material_builder_node.path() + "/" + node_name)
+    a_node.parm(node_param_name) = high_res_map_name_and_export_paths_dict[map_name]
+
+
+in a line:
+rs_material_builder_node = hou.node({rs_material_builder_node_path})\nmaps_and_entry_info_of_export_path_dict = {maps_and_entry_info_of_export_path_dict}\nhigh_res_map_name_and_export_paths_dict = {high_res_map_name_and_export_paths_dict}\n\nfor map_name in maps_and_entry_info_of_export_path_dict.keys():\n    node_name, node_param_name = maps_and_entry_info_of_export_path_dict[map_name]\n    \n    a_node = hou.node(rs_material_builder_node.path() + "/" + node_name)\n    a_node.parm(node_param_name) = high_res_map_name_and_export_paths_dict[map_name]
+
+# list of things:
+{baketexture_node_path}, {highres_bake_resolution_x_and_y}, {rs_material_builder_node_path}, {maps_and_entry_info_of_export_path_dict}, {high_res_map_name_and_export_paths_dict}
