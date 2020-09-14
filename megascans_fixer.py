@@ -208,7 +208,6 @@ def modify_megascans_material_reader_nodes(rs_material_builder_node, map_name_an
 
 
 
-
 class MegascansAsset: # this seems clean. Makes sense to make a class to hold all this information while interacting with the GUI (rather than pass it around or use global variables)
     # people might not understand the concept of a class variable (a class variable is a variable that is tied to the class (as oppose to a specific instance))
     # hence, the map_name_and_node_setup_dict being here symbolises that this information belongs to all instances
@@ -264,8 +263,6 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         map_name_and_reader_node_dict = get_map_name_and_reader_node_dict(map_name_and_node_setup_dict, "{export_path}") # reader nodes are nodes which have "{export_path}"
 
         
-
-
         #-----------------------------------------------
         # Step 1) Make Custom LOD
         #print("Step 1 begins")
@@ -369,6 +366,7 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
 
             # configure and execute pdg (with block = True)
             string_processor(topnet_node, "@ewedge!wedgecount:2!wedgeattributes:2!name1:export_path!type1:4!values1:2!strvalue1_1:{}!strvalue1_2:{}!name2:bake_resolution_x_and_y!type2:2!wedgetype2:2!values2:2!intvalue2_1:{}!intvalue2_2:{}".format(lowres_export_path.replace(" ", "%20"), chosenres_export_path.replace(" ", "%20"), lowres_bake_resolution_x_and_y, chosenres_bake_resolution_x_and_y)) # set parameters on wedge node
+            hou.hipFile.save() # executeGraph uses the last saved hipfile version
             ropfetch_node.executeGraph(False, True, False, False) # block is True (i.e. it doesn't return until it's finished cooking)
 
             # Ask if they want to swap over to highres maps (if yes, swap over)
@@ -381,9 +379,13 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
             modify_megascans_material_reader_nodes(self.rs_material_builder_node, map_name_and_reader_node_dict, chosenres_map_name_and_export_paths_dict) # doing before
             
             # configure and execute pdg (with block = True)
-            string_processor(topnet_node, "@ewedge!wedgecount:2!wedgeattributes:2!name1:export_path!type1:4!values1:1!strvalue1_1:1k.rat!name2:bake_resolution_x_and_y!type2:2!wedgetype2:2!values2:1!intvalue2_1:1024") # set parameters on wedge node
-            ropfetch_node.executeGraph(False, True, False, False) # block is True (i.e. it doesn't return until it's finished cooking)
+            #string_processor(topnet_node, "@ewedge!wedgecount:2!wedgeattributes:2!name1:export_path!type1:4!values1:1!strvalue1_1:1k.rat!name2:bake_resolution_x_and_y!type2:2!wedgetype2:2!values2:1!intvalue2_1:1024") # set parameters on wedge node
+            
+            hou.hipFile.save() # executeGraph uses the last saved hipfile version
+            #ropfetch_node.executeGraph(False, True, False, False) # block is True (i.e. it doesn't return until it's finished cooking)
 
+            chosenres_bake_object.create_in_houdini(fix_subnet_node)
+            chosenres_bake_object.execute_in_houdini()
 
         # the concept of reader nodes (rather, having been explicitly told about them) - the nodes which actually import the maps - has really helped me make this in to elegant code
 
@@ -394,7 +396,7 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
 
         # Layout the fix subnet, and set display flag to off
         fix_subnet_node.layoutChildren()
-        #fix_subnet_node.setDisplayFlag(False)
+        fix_subnet_node.setDisplayFlag(False)
         
         # Layout the megascans asset subnet (that holds the fix subnet)
         self.megascans_asset_subnet.layoutChildren()

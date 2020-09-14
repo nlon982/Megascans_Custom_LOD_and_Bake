@@ -4,6 +4,7 @@ import re
 
 import time
 
+import hdefereval
 import threading
 
 def get_valid_name(name): # works for Houdini name and Houdini ui name
@@ -192,18 +193,9 @@ class MegascansFixerDialog(HDialog):
                 self.initUI()
 
         def cb_go_button(self):
-                self.close() # inherited call back method to close the UI
-
-                self.blah()
-
-                # perhaps it's good the ui freezes until the lod has finished baking (the user wouldn't be able to do anything anyway?), that way the user knows something relevant to the tool is happening?
-                #a_thread_one = threading.Thread(target = self.close)
-                #a_thread_one.start()
-                
-                #a_thread_two = threading.Thread(target = self.blah)
-                #a_thread_two.start()
-
-                # threading doesn't seem to get the UI to shut
+                self.close()
+                hdefereval.executeDeferred(self.blah) # "gets called after Houdini has done processing the queued UI events"  https://www.sidefx.com/forum/topic/23523/
+                # ^ works perfectly for my purpose
 
         def blah(self):
                 # Get information from UI (I have types in the variable names for the sake of clarity)
@@ -220,7 +212,7 @@ class MegascansFixerDialog(HDialog):
                 # sort out other maps ticked
                 for map_name in self.other_maps_to_bake_checkbox_dict.keys():
                         checkbox_value = self.other_maps_to_bake_checkbox_dict[map_name].isChecked() # like the above
-                        if checkbox_value == "0":
+                        if checkbox_value == "0" or checkbox_value == 0: # I still don't know what's going on behind the scenes
                                 bake_bool = False
                         else:
                                 bake_bool = True
@@ -232,7 +224,7 @@ class MegascansFixerDialog(HDialog):
                 map_resolution_str = self.map_resolution_menu_list[self.map_resolution_menu.getValue()]
 
                 use_temp_resolution_checkbox_value = self.use_temp_resolution_checkbox.isChecked() # checkbox_value is "0" or "1", but I want it False or True for clarity
-                if use_temp_resolution_checkbox_value == "0": # 0 corresponds to unticked, and 1 corresponds to ticked
+                if use_temp_resolution_checkbox_value == "0" or use_temp_resolution_checkbox_value == 0: # 0 corresponds to unticked, and 1 corresponds to ticked. As above, I still don't know what's going on behind the scenes
                         use_temp_resolution_bool = False
                 else:
                         use_temp_resolution_bool = True
@@ -242,6 +234,7 @@ class MegascansFixerDialog(HDialog):
                 #hou.ui.displayMessage(message_string)
 
                 # using displacement resolution as resolution for all maps you ask it to bake! I need to a discussion with Muggy on how it should be dealt with
+                
                 self.megascans_asset_object.execute_fix(polyreduce_percentage_float, maps_to_bake_dict, map_resolution_str, use_temp_resolution_bool)
 
                 

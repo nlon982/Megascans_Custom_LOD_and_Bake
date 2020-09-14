@@ -75,8 +75,8 @@ class Bake:
 
         # Set  up bake texture node
         ropnet_node = housing_node.createNode("ropnet", "ropnet_for_baking")
-        self.baketexture_node = ropnet_node.createNode("baketexture::3.0", "bake_texture")
-        string_processor(ropnet_node, "@ebake_texture!camera:{}!vm_uvunwrapresx:int{}!vm_uvunwrapresy:int{}!vm_uvobject1:{}!vm_uvhires1:{}!vm_uvoutputpicture1:{}!vm_extractimageplanesformat:OpenEXR!vm_extractremoveintermediate:+!vm_uv_unwrap_method:int2".format(self.camera_node.path(), self.bake_resolution_tuple[0], self.bake_resolution_tuple[1], lod_geo_node.path(), highpoly_geo_node.path(), self.export_path.replace(" ", "%20"))) #TODO
+        self.baketexture_node = ropnet_node.createNode("baketexture::3.0", "bake_texture1")
+        string_processor(ropnet_node, "@ebake_texture1!camera:{}!vm_uvunwrapresx:int{}!vm_uvunwrapresy:int{}!vm_uvobject1:{}!vm_uvhires1:{}!vm_uvoutputpicture1:{}!vm_extractimageplanesformat:OpenEXR!vm_extractremoveintermediate:+!vm_uv_unwrap_method:int2".format(self.camera_node.path(), self.bake_resolution_tuple[0], self.bake_resolution_tuple[1], lod_geo_node.path(), highpoly_geo_node.path(), self.export_path.replace(" ", "%20"))) #TODO
         
 
 
