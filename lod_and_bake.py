@@ -54,14 +54,13 @@ class Bake:
 
         self.maps_to_bake_dict = maps_to_bake_dict
 
-        self.postrender_script = "" # Has to be set manually (I thought that's for the best). It'll format {baketexture_node_path} to the baketexture_node_path used in create_and_execute_in_houdini
-
-        self.ropnet_node_name = "ropnet_for_baking_{}".format(get_megascans_resolution_str_from_resolution(self.bake_resolution_tuple[0]) + "by" + get_megascans_resolution_str_from_resolution(self.bake_resolution_tuple[1])) # this can be planned ahead, so doing it here
+        self.baketexture_node = None # i.e. it hasn't been created in Houdini yet
 
 
-
-
-    def create_and_execute_in_houdini(self, housing_node): # includes executing the baking
+    def create_in_houdini(self, housing_node): # includes executing the baking
+        if self.baketexture_node != None:
+            raise Exception("Already created in houdini, baketexture_node: {}".format(self.baketexture_node))
+        
         # Set up GEOs
         highpoly_geo_node = housing_node.createNode("geo", "Highpoly_geo_temp")
         lod_geo_node = housing_node.createNode("geo", "LOD_geo_temp") # aka lowpoly
@@ -73,28 +72,16 @@ class Bake:
         string_processor(housing_node, "@etemp_camera!tx:int0!ty:int0!tz:int0!rx:int0!ry:int0!rz:int0!px:int0!py:int0!pz:int0!prx:int0!pry:int0!prz:int0!resx:int{}!resy:int{}".format(self.bake_resolution_tuple[0], self.bake_resolution_tuple[1])) # gross? perhaps set to default on t, r, p, pr is cleaner. Yep, definitely is.
         
         # Set  up bake texture node
-        ropnet_node = housing_node.createNode("ropnet", self.ropnet_node_name)
-        baketexture_node = ropnet_node.createNode("baketexture::3.0", "bake_texture")
+        ropnet_node = housing_node.createNode("ropnet", "ropnet_for_baking")
+        self.baketexture_node = ropnet_node.createNode("baketexture::3.0", "bake_texture")
         string_processor(ropnet_node, "@ebake_texture!camera:{}!vm_uvunwrapresx:int{}!vm_uvunwrapresy:int{}!vm_uvobject1:{}!vm_uvhires1:{}!vm_uvoutputpicture1:{}!vm_extractimageplanesformat:OpenEXR!vm_extractremoveintermediate:+!vm_uv_unwrap_method:int2".format(a_camera.path(), self.bake_resolution_tuple[0], self.bake_resolution_tuple[1], lod_geo_node.path(), highpoly_geo_node.path(), self.export_path.replace(" ", "%20"))) #TODO
         
-        # Add post render script, if any
-        if self.postrender_script != "":
-
-
-            #postrender_script_edited = self.postrender_script.format(baketexture_node_path = baketexture_node.path()) # formats {baketexture_node_path} to the actual thing
-            postrender_script_edited = self.postrender_script.replace("{baketexture_node_path}", baketexture_node.path()) # because format gets confused with this string (it sees {} with a colon inside with the dictionary definition)
-
-            a_file = open(r"C:\Users\Nathan Longhurst\Desktop\postrender_script1.txt", "w")
-            a_file.write(postrender_script_edited)
-            a_file.close()
-
-            baketexture_node.parm("postrender").set(postrender_script_edited)
 
 
         # Iterate through maps_to_bake_dict, ticking parameters of corresponding maps which have True in the dict
         for map_name in self.maps_to_bake_dict.keys():
             parameter_name = self.map_name_and_houdini_parameter_name_dict[map_name]
-            corresponding_parm = baketexture_node.parm(parameter_name)
+            corresponding_parm = self.baketexture_node.parm(parameter_name)
 
             bake_bool = self.maps_to_bake_dict[map_name] # tr
             if bake_bool == True:
@@ -104,11 +91,15 @@ class Bake:
             else:
                 raise Exception("bake_bool: {}. Expected bake_bool to be boolean".format(bake_bool))
 
-        # Save and execute
-        hou.hipFile.save()
-        baketexture_node.parm("execute").pressButton()
-
         return self.map_name_and_export_paths_dict # returning since it's new info (it wasn't passed in by the user)
+
+
+    def execute_in_houdini(self):
+        if self.baketexture_node != None: # i.e. baketexture node has been created in Houdini
+            # Save and execute
+            hou.hipFile.save()
+            self.baketexture_node.parm("execute").pressButton()
+
 
 
 
@@ -129,3 +120,5 @@ class LOD:
         
         hou.hipFile.save() # save hip file before render
         string_processor(custom_lod_node, "@efile_node!file:{} @epolyreduce_node!percentage:{}!reducepassedtarget:+!originalpoints:+ @erop_fbx_node!sopoutput:{}!execute:=".format(self.highpoly_path.replace(" ", "%20"), self.polyreduce_percentage, self.export_path.replace(" ", "%20")))
+
+    # I should really split this to have 'create_in_houdini' and execute_in_houdini', as above

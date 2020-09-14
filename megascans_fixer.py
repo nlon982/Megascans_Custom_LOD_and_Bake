@@ -45,7 +45,7 @@ def get_file_extension(file_path_or_name):
     return os.path.splitext(file_path_or_name)[1]
 
 def get_megascans_resolution_str_from_resolution(resolution): # e.g. given 4 * 1024, return "4K"
-    return str(resolution / 1024) + "K"
+    return str(resolution // 1024) + "K"
 
 def get_resolution_from_megascans_resolution_str(megascans_resolution_str): # given e.g. "4K", return 4 * 1024. Good to have a function because this logic could change in the future
     return int(megascans_resolution_str[:-1]) * 1024
@@ -148,14 +148,14 @@ def replace_substring_with_count(a_string, substring_to_replace, count):
     return a_string, count
 
 
-def add_to_megascans_material_node_setup(rs_material_builder_node, map_name_and_node_setup_dict, map_name_and_export_paths_dict, current_bump_blender_layer):
-    for map_name in map_name_and_export_paths_dict.keys(): # have to get keys again since htey've changed
+def add_to_megascans_material_node_setup(rs_material_builder_node, map_name_and_node_setup_dict, current_bump_blender_layer):
+    for map_name in map_name_and_node_setup_dict.keys(): # have to get keys again since htey've changed
         try:
             node_setup_string = map_name_and_node_setup_dict[map_name]
         except KeyError: # only error it could be
             raise Exception("map_name_and_node_setup_dict does not contain the node setup for map_name: {}".format(map_name))
         else:
-            a_export_path = map_name_and_export_paths_dict[map_name]
+            a_export_path = "waiting for maps to be rendered"
             node_setup_string, current_bump_blender_layer = replace_substring_with_count(node_setup_string, "{bump_blender_layer}", current_bump_blender_layer)
             node_setup_string = node_setup_string.format(export_path = a_export_path.replace(" ", "%20")) # using format instead of replace, just for the sake of that's how I would've done the above
             string_processor(rs_material_builder_node, node_setup_string)
@@ -180,7 +180,7 @@ def get_entry_name(entry):
     return entry_name
 
 
-def get_entry_info_with_parameter_content(map_name_and_node_setup_dict, parameter_content): # could hardcode parameter_content to be "{export_path}"
+def get_map_name_and_reader_node_dict(map_name_and_node_setup_dict, parameter_content): # could hardcode parameter_content to be "{export_path}"
     a_dict = dict() 
 
     for map_name in map_name_and_node_setup_dict.keys():
@@ -189,16 +189,36 @@ def get_entry_info_with_parameter_content(map_name_and_node_setup_dict, paramete
 
         for item in a_node_setup_list:
             if parameter_content in item:
-                entry_name = get_entry_name(item)
-                entry_param_name = get_entry_param_name_from_content(item, parameter_content)
+                reader_node_name = get_entry_name(item)
+                reader_node_param_name = get_entry_param_name_from_content(item, parameter_content)
 
-                a_dict[map_name] = (entry_name, entry_param_name) # e.g. a_dict["Displacement"] = ('displacement_node', 'tex0')
+                a_dict[map_name] = (reader_node_name, reader_node_param_name) # e.g. a_dict["Displacement"] = ('displacement_node', 'tex0')
 
     return a_dict
+
+def modify_megascans_material_reader_nodes(rs_material_builder_node, map_name_and_reader_node_dict, map_name_and_export_paths_dict):
+    for map_name in map_name_and_reader_node_dict.keys():
+        reader_node_name, reader_node_param_name = map_name_and_reader_node_dict[map_name]
+        export_path = map_name_and_export_paths_dict[map_name]
+
+        # doing this way, rather than using string processor (as the latter doesn't simplify things)
+        reader_node = hou.node("{}/{}".format(rs_material_builder_node.path(), reader_node_name))
+        reader_node.parm(reader_node_param_name).set(export_path)
+
 
 
 
 class MegascansAsset: # this seems clean. Makes sense to make a class to hold all this information while interacting with the GUI (rather than pass it around or use global variables)
+    # people might not understand the concept of a class variable (a class variable is a variable that is tied to the class (as oppose to a specific instance))
+    # hence, the map_name_and_node_setup_dict being here symbolises that this information belongs to all instances
+        
+    # Configure Map Name and Node Setup Dict (used in Step 3)
+    map_name_and_node_setup_dict = dict()
+    map_name_and_node_setup_dict["Displacement"] = "@edisplacement!tex0:{export_path} @eDisplacement1!map_encoding:1"
+    map_name_and_node_setup_dict["Vector Displacement"] = "@edisplacement!tex0:{export_path} @eDisplacement1!map_encoding:0"
+    #map_name_and_node_setup_dict["Bump Map"] = "cTextureSampler-bump!tex0:{export_path}!color_multiplierr:0.2!color_multiplierg:0.2!color_multiplierb:0.2 i0 cBumpMap-bump_for_bump i0 ebump_for_bump i0 ebump_blender nbaseInput{bump_blender_layer}"
+    #map_name_and_node_setup_dict["Normal"] = "cNormalMap-normal!tex0:{export_path} i0 cBumpMap-bump_for_normal!inputType:1 i0 ebump_for_normal i0 ebump_blender nbumpInput{bump_blender_layer}"
+
     def __init__(self, megascans_asset_subnet):
         self.megascans_asset_subnet = megascans_asset_subnet
 
@@ -212,25 +232,38 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
 
         # Executing of the above with no errors means it's confirmed it's a megascans asset, and should be time to call the UI. Perhaps edit the above error code to throw a hou.ui.displayMessage if anything goes wrong (rather than the existing exceptions) - maybe pull this off with a try except?
 
-    def execute_fix(self, polyreduce_percentage_float, maps_to_bake_dict, bake_resolution_str, use_temp_resolution_bool): # can't think of a better name
+
+    def execute_fix(self, polyreduce_percentage_float, maps_to_bake_dict, chosen_bake_resolution_str, use_temp_resolution_bool): # can't think of a better name
         # Step 1 and 2 are housed in this subnet node
         fix_subnet_node = self.megascans_asset_subnet.createNode("subnet", "Megascans_Fixer_Subnet") # Feel free to change name
 
 
         #-----------------------------------------------
         # Preperation)
+        try:
+            bake_vector_displacement_bool = maps_to_bake_dict["Vector Displacement"]
+            bake_displacement_bool = maps_to_bake_dict["Displacement"]
+        except: # they aren't both in maps_to_bake_dict
+            pass
+        else:
+            if bake_vector_displacement_bool == True and bake_displacement_bool == True: # with the GUI, should be an impossible thing to happen anyway
+                maps_to_bake_dict["Displacement"] = False
 
-        # Configure Map Name and Node Setup Dict (used in Step 3)
-        map_name_and_node_setup_dict = dict()
-        map_name_and_node_setup_dict["Displacement"] = "@edisplacement!tex0:{export_path} @eDisplacement1!map_encoding:1"
-        map_name_and_node_setup_dict["Vector Displacement"] = "@edisplacement!tex0:{export_path} @eDisplacement1!map_encoding:0"
-        #map_name_and_node_setup_dict["Bump Map"] = "cTextureSampler-bump!tex0:{export_path}!color_multiplierr:0.2!color_multiplierg:0.2!color_multiplierb:0.2 i0 cBumpMap-bump_for_bump i0 ebump_for_bump i0 ebump_blender nbaseInput{bump_blender_layer}"
-        #map_name_and_node_setup_dict["Normal"] = "cNormalMap-normal!tex0:{export_path} i0 cBumpMap-bump_for_normal!inputType:1 i0 ebump_for_normal i0 ebump_blender nbumpInput{bump_blender_layer}"
 
+        # modify a copy of map_name_and_node_setup_dict to only have maps which we are baking
+        map_name_and_node_setup_dict = MegascansAsset.map_name_and_node_setup_dict.copy() # making a copy, since to modify would change the original since dictionaries are mutable
+        for map_name in map_name_and_node_setup_dict.keys():
+            bake_bool = maps_to_bake_dict[map_name]
+            if bake_bool == False:
+                map_name_and_node_setup_dict.pop(map_name) # pops keys
 
-        # I want the node name, the parameter name (and the corresponding map name as key) of where all the export_paths are, to save for a rainy day (specifically step 2, where uses temp 1k).
-        maps_and_entry_info_of_export_path_dict = get_entry_info_with_parameter_content(map_name_and_node_setup_dict, "{export_path}")
-        hou.ui.displayMessage(str(maps_and_entry_info_of_export_path_dict))
+        hou.ui.displayMessage(str(map_name_and_node_setup_dict))
+
+        # get map_name_and_reader_node_dict
+        map_name_and_reader_node_dict = get_map_name_and_reader_node_dict(map_name_and_node_setup_dict, "{export_path}") # reader nodes are nodes which have "{export_path}"
+
+        
+
 
         #-----------------------------------------------
         # Step 1) Make Custom LOD
@@ -244,54 +277,9 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         
         a_lod_object = lod_and_bake.LOD(highpoly_path, polyreduce_percentage_float, customlod_path)
         #a_lod_object.create_and_execute_in_houdini(fix_subnet_node)
+        # ^ temporarily not using, for testing purposes
 
-        #-----------------------------------------------
-        # Step 2) Bake Custom Maps, and give dictionary with their map names and export paths
-        #print("Step 2 begins")
-        
-
-        # note
-        highres_bake_resolution_x_and_y = get_resolution_from_megascans_resolution_str(bake_resolution_str)
-
-        # for clarity
-        if use_temp_resolution_bool == True:
-            bake_resolution_x_and_y = 1024
-            export_name_prefix = self.megascans_asset_name + "_1K_"
-
-            
-            # ^ i've decided to do the bake 1K maps as a hacky thing to the Bake tool, alternatively, I could code something proper for the Bake tool
-
-            # note it formats {baketexture_node_path} to the actual thing in the create_and_execute_in_houdini method
-        else:
-            bake_resolution_x_and_y = highres_bake_resolution_x_and_y
-            export_name_prefix = self.megascans_asset_name + "_" + bake_resolution_str + "_"
-
-
-        a_bake_object = lod_and_bake.Bake(highpoly_path, customlod_path, maps_to_bake_dict, bake_resolution_x_and_y, bake_resolution_x_and_y, self.megascans_asset_folder_path, export_name_prefix = export_name_prefix)
-        
-        if use_temp_resolution_bool == True:
-            # creating purely to get map_name_and_export_paths_dict and export_path
-            export_name_prefix = self.megascans_asset_name + "_" + bake_resolution_str + "_"
-            a_bake_object_temp = lod_and_bake.Bake(highpoly_path, customlod_path, maps_to_bake_dict, highres_bake_resolution_x_and_y, highres_bake_resolution_x_and_y, self.megascans_asset_folder_path, export_name_prefix = export_name_prefix)
-            highres_map_name_and_export_paths_dict = a_bake_object_temp.map_name_and_export_paths_dict
-            highres_export_path = a_bake_object_temp.export_path
-            #hou.ui.displayMessage(bake_resolution_str + "-----" + str(highres_bake_resolution_x_and_y) + "-----" + highres_export_path)
-            #raise SystemExit
-
-            postrender_script_1 = 'hou.ui.displayMessage("Finished 1K maps, these are configured to use while the higher res maps bake now!")\n\nbaketexture_node = hou.node("{baketexture_node_path}")\nhou.ui.displayMessage(str(baketexture_node))\nhighres_bake_resolution_x_and_y = {highres_bake_resolution_x_and_y}\n\nbaketexture_node.parm("vm_uvoutputpicture1").set("{highres_export_path}")\nbaketexture_node.parm("vm_uvunwrapresx").set(highres_bake_resolution_x_and_y)\nbaketexture_node.parm("vm_uvunwrapresy").set(highres_bake_resolution_x_and_y)\n\n\na_string = "{postrender_script_2}"\nhou.ui.displayMessage("Finished highres maps")\nbaketexture_node.parm("postrender").set(a_string)\n\nhou.hipFile.save()\nbaketexture_node.parm("execute").pressButton()'
-            postrender_script_2 = "rs_material_builder_node = hou.node('{rs_material_builder_node_path}')\\nmaps_and_entry_info_of_export_path_dict = {maps_and_entry_info_of_export_path_dict}\\nhighres_map_name_and_export_paths_dict = {highres_map_name_and_export_paths_dict}\\n\\nfor map_name in highres_map_name_and_export_paths_dict.keys():\\n    \\n    try:\\n        node_name, node_param_name = maps_and_entry_info_of_export_path_dict[map_name]\\n    \\n        a_node = hou.node(rs_material_builder_node.path() + '/' + node_name)\\n        a_node.parm(node_param_name).set(highres_map_name_and_export_paths_dict[map_name])\\n    except:\\n        pass"
-            postrender_script_1 = postrender_script_1.replace("{postrender_script_2}", postrender_script_2) # can't do it in the same format as below
-
-            postrender_script_1 = postrender_script_1.format(highres_export_path = highres_export_path, highres_bake_resolution_x_and_y = get_resolution_from_megascans_resolution_str(bake_resolution_str), baketexture_node_path = "{baketexture_node_path}", rs_material_builder_node_path = self.rs_material_builder_node.path(), maps_and_entry_info_of_export_path_dict = maps_and_entry_info_of_export_path_dict, highres_map_name_and_export_paths_dict = highres_map_name_and_export_paths_dict)
-            # baketexture_node_path is sorted by create_in_houdini (What I did above (formatting it to itself) was gross)
-            
-
-            a_bake_object.postrender_script = postrender_script_1
-        else:
-            a_bake_object.postrender_script = 'hou.ui.displayMessage("Finished Baking")'
-
-        map_name_and_export_paths_dict = a_bake_object.create_and_execute_in_houdini(fix_subnet_node)
-
+        self.file_node.parm("file").set(customlod_path) # good to do this here, since it's ready? or perhaps this step should wait until atleast maps have been baked and setup
 
         #-----------------------------------------------
         # Step 3) Configure and Modify Megascans Material's Node Setup (enable tessalation, displacement etc. and edit node setup)
@@ -312,44 +300,79 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
 
 
         # Hardcoded logic on Megascans Material's Node Setup
-        map_name_and_export_paths_dict_keys = map_name_and_export_paths_dict.keys() # so I don't have to get the keys again (probably not worth it)
-        if "Vector Displacement" in map_name_and_export_paths_dict_keys and "Displacement" in map_name_and_export_paths_dict_keys: # if both there, only set up Vector Displacement
-            map_name_and_export_paths_dict.pop("Displacement") 
-
-        if "Normal" in map_name_and_export_paths_dict_keys:
-            for child in self.rs_material_builder_node.children(): # destroy the legacy normal map
-                if child.type().name() == "redshift::NormalMap":
-                    child.destroy()
-                    break
-
-
-        
+        try:
+            bake_normal_bool = maps_to_bake_dict["Normal"]
+        except: # not in maps_to_bake_dict
+            pass
+        else:
+            if bake_normal_bool == True:
+                for child in self.rs_material_builder_node.children(): # destroy the legacy normal map
+                    if child.type().name() == "redshift::NormalMap":
+                        child.destroy()
+                        break
 
         # Add to Megascans Material's Node Setup
-        add_to_megascans_material_node_setup(self.rs_material_builder_node, map_name_and_node_setup_dict, map_name_and_export_paths_dict, current_bump_blender_layer)
+        add_to_megascans_material_node_setup(self.rs_material_builder_node, map_name_and_node_setup_dict, current_bump_blender_layer) # puts "todo" where export paths should go (modify_megascans_material_reader_nodes sorts that out)
+
+        #-----------------------------------------------
+        # Step 2) Bake Custom Maps, and modify reader node with those maps!
+        #print("Step 2 begins")
+        
+
+        # used in either case ('chosen' can be read as 'chosenres' too, perhaps in the ones that use the latter, I should rename)
+        chosen_bake_resolution_x_and_y = get_resolution_from_megascans_resolution_str(chosen_bake_resolution_str)
+        chosen_export_name_prefix =  "{}_{}_".format(self.megascans_asset_name, chosen_bake_resolution_str)
+        chosen_bake_object = lod_and_bake.Bake(highpoly_path, customlod_path, maps_to_bake_dict, chosen_bake_resolution_x_and_y, chosen_bake_resolution_x_and_y, self.megascans_asset_folder_path, export_name_prefix = chosen_export_name_prefix)
+        chosen_map_name_and_export_paths_dict = chosen_bake_object.map_name_and_export_paths_dict
+
+        chosen_bake_object.create_in_houdini(fix_subnet_node)
 
 
+
+        if use_temp_resolution_bool == True:
+            chosen_export_path = chosen_bake_object.export_path
+            
+            # getting lowres_export_path and lowres_map_name_and_export_paths_dict
+            lowres_bake_resolution_x_and_y = 1024
+            lowres_export_name_prefix = "{}_{}_".format(self.megascans_asset_name, get_megascans_resolution_str_from_resolution(lowres_bake_resolution_x_and_y))
+            lowres_bake_object = lod_and_bake.Bake(highpoly_path, customlod_path, maps_to_bake_dict, lowres_bake_resolution_x_and_y, lowres_bake_resolution_x_and_y, self.megascans_asset_folder_path, export_name_prefix = lowres_export_name_prefix)
+
+            lowres_export_path = loweres_bake_object.export_path
+            lowres_map_name_and_export_paths_dict = lowres_bake_object.map_name_and_export_paths_dict
+
+
+            modify_megascans_material_reader_nodes(self.rs_material_builder_node, map_name_and_reader_node_dict, lowres_map_name_and_export_paths_dict)
+
+            # create and execute pdg (with block = True)
+            # ^ todo
+
+            modify_megascans_material_reader_nodes(self.rs_material_builder_node, map_name_and_reader_node_dict, chosen_map_name_and_export_paths_dict)
+
+        else:
+            modify_megascans_material_reader_nodes(self.rs_material_builder_node, map_name_and_reader_node_dict, chosen_map_name_and_export_paths_dict) # doing before
+            chosen_bake_object.execute_in_houdini()
+
+
+        # the concept of reader nodes (rather, having been explicitly told about them) - the nodes which actually import the maps - has really helped me make this in to elegant code
 
 
 
         #-----------------------------------------------
         # Final touches
 
-        self.file_node.parm("file").set(customlod_path)
-
-        # Layout the subnet that holds everything, and set display flag to off
+        # Layout the fix subnet, and set display flag to off
         fix_subnet_node.layoutChildren()
         fix_subnet_node.setDisplayFlag(False)
         
-        # Layout the thing that holds the subnet
+        # Layout the megascans asset subnet (that holds the fix subnet)
         self.megascans_asset_subnet.layoutChildren()
 
-        # Set Network Editor pane to be where you started (at the location of the megascans asset node - as oppose to inside the fix_subnet_node)
+        # Set Network Editor pane to view the level with the megascans asset subnet - as oppose to inside the fix_subnet_node, which it currently goes to
         network_editor = [pane for pane in hou.ui.paneTabs() if isinstance(pane, hou.NetworkEditor) and pane.isCurrentTab()][0] # assuming just one. 
         # ^ as per: https://forums.odforce.net/topic/12406-getting-the-current-active-network-editor-pane/, doesn't seem like there's a better way to do it nowadays
         network_editor.setCurrentNode(self.megascans_asset_subnet)
 
-        hou.ui.displayMessage("LOD created successfully! Maps could still be baking in the background") # perhaps put this in the post render script for the baking
+        hou.ui.displayMessage("All done!")
 
 
 
