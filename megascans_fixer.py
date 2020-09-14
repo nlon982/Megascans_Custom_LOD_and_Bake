@@ -257,7 +257,7 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
             if bake_bool == False:
                 map_name_and_node_setup_dict.pop(map_name) # pops keys
 
-        hou.ui.displayMessage(str(map_name_and_node_setup_dict))
+        #hou.ui.displayMessage(str(map_name_and_node_setup_dict))
 
         # get map_name_and_reader_node_dict
         map_name_and_reader_node_dict = get_map_name_and_reader_node_dict(map_name_and_node_setup_dict, "{export_path}") # reader nodes are nodes which have "{export_path}"
@@ -314,43 +314,73 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         # Add to Megascans Material's Node Setup
         add_to_megascans_material_node_setup(self.rs_material_builder_node, map_name_and_node_setup_dict, current_bump_blender_layer) # puts "todo" where export paths should go (modify_megascans_material_reader_nodes sorts that out)
 
+        hou.ui.displayMessage("sleeping for 10 after you press ok")
+        time.sleep(10)
+
         #-----------------------------------------------
         # Step 2) Bake Custom Maps, and modify reader node with those maps!
         #print("Step 2 begins")
         
 
-        # used in either case ('chosen' can be read as 'chosenres' too, perhaps in the ones that use the latter, I should rename)
-        chosen_bake_resolution_x_and_y = get_resolution_from_megascans_resolution_str(chosen_bake_resolution_str)
-        chosen_export_name_prefix =  "{}_{}_".format(self.megascans_asset_name, chosen_bake_resolution_str)
-        chosen_bake_object = lod_and_bake.Bake(highpoly_path, customlod_path, maps_to_bake_dict, chosen_bake_resolution_x_and_y, chosen_bake_resolution_x_and_y, self.megascans_asset_folder_path, export_name_prefix = chosen_export_name_prefix)
-        chosen_map_name_and_export_paths_dict = chosen_bake_object.map_name_and_export_paths_dict
+        #----- getting info about chosenres
+        chosenres_bake_resolution_x_and_y = get_resolution_from_megascans_resolution_str(chosen_bake_resolution_str)
+        chosenres_export_name_prefix =  "{}_{}_".format(self.megascans_asset_name, chosen_bake_resolution_str)
 
-        chosen_bake_object.create_in_houdini(fix_subnet_node)
+        # getting chosenres_export_path and chosenres_map_name_and_export_paths_dict (could make a function that does this since I have to do the same again for lowres...)
+        chosenres_bake_object = lod_and_bake.Bake(highpoly_path, customlod_path, maps_to_bake_dict, chosenres_bake_resolution_x_and_y, chosenres_bake_resolution_x_and_y, self.megascans_asset_folder_path, export_name_prefix = chosenres_export_name_prefix)
+        chosenres_map_name_and_export_paths_dict = chosenres_bake_object.map_name_and_export_paths_dict
+        chosenres_export_path = chosenres_bake_object.export_path
 
+        
+        #----- create a GENERAL Bake object, hack it so that resolution_x and resolution_y are "@bake_resolution_x_and_y" and so export_path is "@export_path"
+        general_bake_object = lod_and_bake.Bake(highpoly_path, customlod_path, maps_to_bake_dict, 0, 0, self.megascans_asset_folder_path) # have the resolution x and y be 0 for now,  and have export_path be the default for now (both things changed below)
+        general_baketexture_node, general_camera_node = general_bake_object.create_in_houdini(fix_subnet_node)
+
+        # yes, I could assign "@bake_resolution_x_and_y" to a variable to stop me having to type it out, but I think it's more clear this way
+        general_camera_node.parm("resx").setExpression("@bake_resolution_x_and_y", hou.exprLanguage.Hscript)
+        general_camera_node.parm("resy").setExpression("@bake_resolution_x_and_y", hou.exprLanguage.Hscript)
+        general_baketexture_node.parm("vm_uvunwrapresx").setExpression("@bake_resolution_x_and_y")
+        general_baketexture_node.parm("vm_uvunwrapresy").setExpression("@bake_resolution_x_and_y")
+        general_baketexture_node.parm("vm_uvoutputpicture1").setExpression("@export_path")
+
+
+        #-----
+        topnet_node = fix_subnet_node.createNode("topnet", "topnet")
+        string_processor(topnet_node, "cwedge-wedge i0 cropfetch-ropfetch i0")
+
+        ropfetch_node = hou.node(topnet_node.path() + "/ropfetch") # as per created above (needed to execute)
+        ropfetch_node.parm("roppath").set(general_baketexture_node.path())
 
 
         if use_temp_resolution_bool == True:
-            chosen_export_path = chosen_bake_object.export_path
+            lowres_bake_resolution_x_and_y = 1024 # change to what you like
+            lowres_export_name_prefix = "{}_{}_".format(self.megascans_asset_name, get_megascans_resolution_str_from_resolution(lowres_bake_resolution_x_and_y))
             
             # getting lowres_export_path and lowres_map_name_and_export_paths_dict
-            lowres_bake_resolution_x_and_y = 1024
-            lowres_export_name_prefix = "{}_{}_".format(self.megascans_asset_name, get_megascans_resolution_str_from_resolution(lowres_bake_resolution_x_and_y))
             lowres_bake_object = lod_and_bake.Bake(highpoly_path, customlod_path, maps_to_bake_dict, lowres_bake_resolution_x_and_y, lowres_bake_resolution_x_and_y, self.megascans_asset_folder_path, export_name_prefix = lowres_export_name_prefix)
-
-            lowres_export_path = loweres_bake_object.export_path
+            lowres_export_path = lowres_bake_object.export_path
             lowres_map_name_and_export_paths_dict = lowres_bake_object.map_name_and_export_paths_dict
 
 
             modify_megascans_material_reader_nodes(self.rs_material_builder_node, map_name_and_reader_node_dict, lowres_map_name_and_export_paths_dict)
 
-            # create and execute pdg (with block = True)
-            # ^ todo
 
-            modify_megascans_material_reader_nodes(self.rs_material_builder_node, map_name_and_reader_node_dict, chosen_map_name_and_export_paths_dict)
+            # configure and execute pdg (with block = True)
+            string_processor(topnet_node, "@ewedge!wedgecount:2!wedgeattributes:2!name1:export_path!type1:4!values1:2!strvalue1_1:{}!strvalue1_2:{}!name2:bake_resolution_x_and_y!type2:2!wedgetype2:2!values2:2!intvalue2_1:{}!intvalue2_2:{}".format(lowres_export_path.replace(" ", "%20"), chosenres_export_path.replace(" ", "%20"), lowres_bake_resolution_x_and_y, chosenres_bake_resolution_x_and_y)) # set parameters on wedge node
+            ropfetch_node.executeGraph(False, True, False, False) # block is True (i.e. it doesn't return until it's finished cooking)
+
+            # Ask if they want to swap over to highres maps (if yes, swap over)
+            message_string = "Chosen resolution has finished rendering. Would you like to swap over to the highres maps now?\n\nNote that you are currently using the temporary 1K resolution maps.  If you want to do this manually, note the reader nodes/params are...."
+            user_choice = hou.ui.displayMessage(message_string, title = "Chosen resolution has finished rendering", buttons = ('Yes', 'No'), default_choice = 0) # 0 is Yes, 1 is No
+            if user_choice == 0:
+                modify_megascans_material_reader_nodes(self.rs_material_builder_node, map_name_and_reader_node_dict, chosenres_map_name_and_export_paths_dict)
 
         else:
-            modify_megascans_material_reader_nodes(self.rs_material_builder_node, map_name_and_reader_node_dict, chosen_map_name_and_export_paths_dict) # doing before
-            chosen_bake_object.execute_in_houdini()
+            modify_megascans_material_reader_nodes(self.rs_material_builder_node, map_name_and_reader_node_dict, chosenres_map_name_and_export_paths_dict) # doing before
+            
+            # configure and execute pdg (with block = True)
+            string_processor(topnet_node, "@ewedge!wedgecount:2!wedgeattributes:2!name1:export_path!type1:4!values1:1!strvalue1_1:1k.rat!name2:bake_resolution_x_and_y!type2:2!wedgetype2:2!values2:1!intvalue2_1:1024") # set parameters on wedge node
+            ropfetch_node.executeGraph(False, True, False, False) # block is True (i.e. it doesn't return until it's finished cooking)
 
 
         # the concept of reader nodes (rather, having been explicitly told about them) - the nodes which actually import the maps - has really helped me make this in to elegant code

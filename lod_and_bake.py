@@ -54,13 +54,14 @@ class Bake:
 
         self.maps_to_bake_dict = maps_to_bake_dict
 
-        self.baketexture_node = None # i.e. it hasn't been created in Houdini yet
+        self.baketexture_node = None # i.e. it hasn't been created in Houdini yet (this is a means for execute_in_houdini to work)
+        self.camera_node = None # ditto to above, but not needed for execute_in_houdini to work - just saving for a rainy day
 
 
-    def create_in_houdini(self, housing_node): # includes executing the baking
+    def create_in_houdini(self, housing_node): 
         if self.baketexture_node != None:
             raise Exception("Already created in houdini, baketexture_node: {}".format(self.baketexture_node))
-        
+
         # Set up GEOs
         highpoly_geo_node = housing_node.createNode("geo", "Highpoly_geo_temp")
         lod_geo_node = housing_node.createNode("geo", "LOD_geo_temp") # aka lowpoly
@@ -68,13 +69,14 @@ class Bake:
         string_processor(lod_geo_node, "@cfile!file:{}".format(self.lod_path.replace(" ", "%20")))
 
         # Set up camera
-        a_camera = housing_node.createNode("cam", "temp_camera")
-        string_processor(housing_node, "@etemp_camera!tx:int0!ty:int0!tz:int0!rx:int0!ry:int0!rz:int0!px:int0!py:int0!pz:int0!prx:int0!pry:int0!prz:int0!resx:int{}!resy:int{}".format(self.bake_resolution_tuple[0], self.bake_resolution_tuple[1])) # gross? perhaps set to default on t, r, p, pr is cleaner. Yep, definitely is.
-        
+        self.camera_node = housing_node.createNode("cam", "temp_camera")
+        string_processor(housing_node, "@e{}!tx:int0!ty:int0!tz:int0!rx:int0!ry:int0!rz:int0!px:int0!py:int0!pz:int0!prx:int0!pry:int0!prz:int0!resx:{}!resy:{}".format(self.camera_node.name(), self.bake_resolution_tuple[0], self.bake_resolution_tuple[1])) # perhaps I can do 'set to default' because setting 0's here is lengthy and weird. Note the ints aren't necessarily, houdini does that automatically
+        # ^ it's more robust by getting to to work out the camera_node's name (i.e. in the case temp_camera was taken)
+
         # Set  up bake texture node
         ropnet_node = housing_node.createNode("ropnet", "ropnet_for_baking")
         self.baketexture_node = ropnet_node.createNode("baketexture::3.0", "bake_texture")
-        string_processor(ropnet_node, "@ebake_texture!camera:{}!vm_uvunwrapresx:int{}!vm_uvunwrapresy:int{}!vm_uvobject1:{}!vm_uvhires1:{}!vm_uvoutputpicture1:{}!vm_extractimageplanesformat:OpenEXR!vm_extractremoveintermediate:+!vm_uv_unwrap_method:int2".format(a_camera.path(), self.bake_resolution_tuple[0], self.bake_resolution_tuple[1], lod_geo_node.path(), highpoly_geo_node.path(), self.export_path.replace(" ", "%20"))) #TODO
+        string_processor(ropnet_node, "@ebake_texture!camera:{}!vm_uvunwrapresx:int{}!vm_uvunwrapresy:int{}!vm_uvobject1:{}!vm_uvhires1:{}!vm_uvoutputpicture1:{}!vm_extractimageplanesformat:OpenEXR!vm_extractremoveintermediate:+!vm_uv_unwrap_method:int2".format(self.camera_node.path(), self.bake_resolution_tuple[0], self.bake_resolution_tuple[1], lod_geo_node.path(), highpoly_geo_node.path(), self.export_path.replace(" ", "%20"))) #TODO
         
 
 
@@ -91,10 +93,12 @@ class Bake:
             else:
                 raise Exception("bake_bool: {}. Expected bake_bool to be boolean".format(bake_bool))
 
-        return self.map_name_and_export_paths_dict # returning since it's new info (it wasn't passed in by the user)
+        # I don't think it should return self.map_name_and_export_paths_dict because this was already predecided/known, so unless create_in_houdini does something extra it shouldn't return.
+
+        return self.baketexture_node, self.camera_node # good idea to return these, I think, since they're created and brand new (the user can do wht they like with them)
 
 
-    def execute_in_houdini(self):
+    def execute_in_houdini(self): # perhaps this could be left to the user (since they're given self.baketexture_node in create_in_houdini)
         if self.baketexture_node != None: # i.e. baketexture node has been created in Houdini
             # Save and execute
             hou.hipFile.save()

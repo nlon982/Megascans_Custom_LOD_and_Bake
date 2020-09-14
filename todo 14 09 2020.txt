@@ -1,0 +1,14 @@
+todo:
+message Muggy, asking about the third displacement option (tangent space)
+
+
+
+
+although it isn't too much of a problem:
+note the 1k and highres are getting baked out concurrently (as you would hope a topnet does)
+the entire point is that the 1K gets baked out first (i'm sure it's still getting baked out faster, but yeah) - i'm sure there's an option
+to have it not do them concurrently
+
+
+
+also, I might have to play with the settings even more (because, at least for me, it goes balls out in rendering, I can't do anyting else  - i'm not sure the baketexture by itself is like this?)

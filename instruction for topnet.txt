@@ -38,3 +38,17 @@ set 'roppath' to baketexture_node_path
 
 Then
 ropfetch_node.executeGraph(False, True, False, False)
+
+
+-----------------------
+
+A code that tests:
+from big_framework import string_processor
+
+topnet_node = hou.selectedNodes()[0] # assuming one thing is selected and that it's the topnet node
+
+string_processor(topnet_node, "cwedge-wedge!wedgecount:2!wedgeattributes:2!name1:export_path!type1:4!values1:2!strvalue1_1:1k.rat!strvalue1_2:boo.rat!name2:bake_resolution_x_and_y!type2:2!wedgetype2:2!values2:2!intvalue2_1:1024!intvalue2_2:2048 i0 cropfetch-ropfetch!roppath:baketexturenodespathgoeshere i0")
+
+
+#ropfetch_node = hou.node(topnet_node.path() + "/ropfetch") # as per created above
+#ropfetch_node.executeGraph(False, True, False, False) # block is True (i.e. it doesn't return until it's finished cooking)
