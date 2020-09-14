@@ -1,5 +1,6 @@
 import hou
 import os
+import time
 
 from big_framework import *
 
@@ -314,8 +315,8 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         # Add to Megascans Material's Node Setup
         add_to_megascans_material_node_setup(self.rs_material_builder_node, map_name_and_node_setup_dict, current_bump_blender_layer) # puts "todo" where export paths should go (modify_megascans_material_reader_nodes sorts that out)
 
-        hou.ui.displayMessage("sleeping for 10 after you press ok")
-        time.sleep(10)
+        #hou.ui.displayMessage("sleeping for 10 after you press ok")
+        #time.sleep(10)
 
         #-----------------------------------------------
         # Step 2) Bake Custom Maps, and modify reader node with those maps!
@@ -343,6 +344,7 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         general_baketexture_node.parm("vm_uvunwrapresy").setExpression("@bake_resolution_x_and_y")
         general_baketexture_node.parm("vm_uvoutputpicture1").setExpression("@export_path")
 
+        #time.sleep(5)
 
         #-----
         topnet_node = fix_subnet_node.createNode("topnet", "topnet")
@@ -392,7 +394,7 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
 
         # Layout the fix subnet, and set display flag to off
         fix_subnet_node.layoutChildren()
-        fix_subnet_node.setDisplayFlag(False)
+        #fix_subnet_node.setDisplayFlag(False)
         
         # Layout the megascans asset subnet (that holds the fix subnet)
         self.megascans_asset_subnet.layoutChildren()
