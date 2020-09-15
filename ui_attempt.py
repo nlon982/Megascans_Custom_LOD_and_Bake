@@ -194,10 +194,10 @@ class MegascansFixerDialog(HDialog):
 
         def cb_go_button(self):
                 self.close()
-                hdefereval.executeDeferred(self.blah) # "gets called after Houdini has done processing the queued UI events"  https://www.sidefx.com/forum/topic/23523/
+                hdefereval.executeDeferred(self.get_information_ready_and_send_to_execute_fix) # "gets called after Houdini has done processing the queued UI events"  https://www.sidefx.com/forum/topic/23523/
                 # ^ works perfectly for my purpose
 
-        def blah(self):
+        def get_information_ready_and_send_to_execute_fix(self):
                 # Get information from UI (I have types in the variable names for the sake of clarity)
                 polyreduce_percentage_float = float(self.polyreduce_percentage_slider.getValue())
                 
@@ -207,9 +207,9 @@ class MegascansFixerDialog(HDialog):
                 # construct maps_to_bake_dict
                 maps_to_bake_dict = lod_and_bake.Bake.maps_to_bake_dict_template.copy() # dictionaries are mutable, so need to make a copy as to not modify the original!
 
-                maps_to_bake_dict[displacement_type_str] = True # sort out displacement
+                maps_to_bake_dict[displacement_type_str] = True # add what displacement to maps_to_bake_dict
 
-                # sort out other maps ticked
+                # add other ticked maps to maps_to_bake_dict
                 for map_name in self.other_maps_to_bake_checkbox_dict.keys():
                         checkbox_value = self.other_maps_to_bake_checkbox_dict[map_name].isChecked() # like the above
                         if checkbox_value == "0" or checkbox_value == 0: # I still don't know what's going on behind the scenes
@@ -217,8 +217,6 @@ class MegascansFixerDialog(HDialog):
                         else:
                                 bake_bool = True
                         maps_to_bake_dict[map_name] = bake_bool
-                        
-
 
                 # regarding resolution
                 map_resolution_str = self.map_resolution_menu_list[self.map_resolution_menu.getValue()]

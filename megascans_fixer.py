@@ -208,6 +208,18 @@ def modify_megascans_material_reader_nodes(rs_material_builder_node, map_name_an
         reader_node = hou.node("{}/{}".format(rs_material_builder_node.path(), reader_node_name))
         reader_node.parm(reader_node_param_name).set(export_path)
 
+def get_nice_string_of_map_name_and_reader_node_dict(map_name_and_reader_node_dict):
+    final_string = ""
+
+    a_header = "In order: Map Name, Reader Node Name, Reader Node Parameter Name:" # I also like to call the reader node's corrseponding parameter 'reader parameter'
+    final_string += a_header
+    for map_name in map_name_and_reader_node_dict.keys():
+        reader_node_name, reader_node_param_name = map_name_and_reader_node_dict[map_name]
+        a_line = "{}, {}, {}".format(map_name, reader_node_name, reader_node_param_name)
+        final_string += "\n" + a_line
+
+    return final_string
+
 
 
 class MegascansAsset: # this seems clean. Makes sense to make a class to hold all this information while interacting with the GUI (rather than pass it around or use global variables)
@@ -238,6 +250,8 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
     def execute_fix(self, polyreduce_percentage_float, maps_to_bake_dict, chosen_bake_resolution_str, use_temp_resolution_bool): # can't think of a better name
         # Step 1 and 2 are housed in this subnet node
         fix_subnet_node = self.megascans_asset_subnet.createNode("subnet", "Megascans_Fixer_Subnet") # Feel free to change name
+
+        self.chosen_bake_resolution_str = chosen_bake_resolution_str # nice to have here.. perhaps think of a systematic way to save all the relevant info to attributes
 
 
         #-----------------------------------------------
@@ -270,7 +284,6 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         
         #-----------------------------------------------
         # Step 1) Make Custom LOD
-        #print("Step 1 begins")
 
         customlod_name = self.megascans_asset_name + "_LOD_custom_{}percent.fbx".format(polyreduce_percentage_float)
         customlod_path = os_path_join_fix(self.megascans_asset_folder_path, customlod_name)
@@ -286,10 +299,7 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
 
         #-----------------------------------------------
         # Step 3) Configure and Modify Megascans Material's Node Setup (enable tessalation, displacement etc. and edit node setup)
-        #print("Step 3 begins")
 
-
-        
         # Enable Tessellation, Displacement, and set Displacement Scale
         self.asset_geometry_node.parm("RS_objprop_rstess_enable").set(1)
         self.asset_geometry_node.parm("RS_objprop_displace_enable").set(1)
@@ -320,21 +330,17 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
 
         #-----------------------------------------------
         # Step 2) Bake Custom Maps, and modify reader node with those maps!
-        #print("Step 2 begins")
         
 
-        #----- getting info about chosenres
+        # Get information about chosenres
         chosenres_bake_resolution_x_and_y = get_resolution_from_megascans_resolution_str(chosen_bake_resolution_str)
         chosenres_export_name_prefix =  "{}_{}_".format(self.megascans_asset_name, chosen_bake_resolution_str)
-
-        # getting chosenres_export_path and self.chosenres_map_name_and_export_paths_dict (could make a function that does this since I have to do the same again for lowres...)
-        chosenres_bake_object = lod_and_bake.Bake(highpoly_path, customlod_path, maps_to_bake_dict, chosenres_bake_resolution_x_and_y, chosenres_bake_resolution_x_and_y, self.megascans_asset_folder_path, export_name_prefix = chosenres_export_name_prefix)
-        self.chosenres_map_name_and_export_paths_dict = chosenres_bake_object.map_name_and_export_paths_dict
-        chosenres_export_path = chosenres_bake_object.export_path
-
+        chosenres_export_path = lod_and_bake.Bake.get_export_path(self.megascans_asset_folder_path, chosenres_export_name_prefix)
+        self.chosenres_map_name_and_export_paths_dict = lod_and_bake.Bake.get_map_name_and_export_paths_dict(maps_to_bake_dict, self.megascans_asset_folder_path, chosenres_export_name_prefix) # this is a attribute so that cook_event_handler_one can access it
         
-        #----- create a GENERAL Bake object, hack it so that resolution_x and resolution_y are "@bake_resolution_x_and_y" and so export_path is "@export_path"
-        general_bake_object = lod_and_bake.Bake(highpoly_path, customlod_path, maps_to_bake_dict, 0, 0, self.megascans_asset_folder_path) # have the resolution x and y be 0 for now,  and have export_path be the default for now (both things changed below)
+
+        # Create a GENERAL Bake object to use in the PDG later i.e. hack it so that resolution_x and resolution_y are "@bake_resolution_x_and_y" and so export_path is "@export_path"
+        general_bake_object = lod_and_bake.Bake(highpoly_path, customlod_path, maps_to_bake_dict, 0, 0, self.megascans_asset_folder_path) # have the resolution x and y be 0 for now, and have export_path be the default for now (both things changed below)
         general_baketexture_node, general_camera_node = general_bake_object.create_in_houdini(fix_subnet_node)
 
         # yes, I could assign "@bake_resolution_x_and_y" to a variable to stop me having to type it out, but I think it's more clear this way
@@ -345,8 +351,7 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         general_baketexture_node.parm("vm_uvoutputpicture1").setExpression("@export_path")
 
 
-        #-----
-
+        # Create PDG network, modify reader nodes, bake and add event handlers (dependent on if using temp resolution)
         topnet_node = fix_subnet_node.createNode("topnet", "topnet")
         string_processor(topnet_node, "cwedge-wedge i0 cropfetch-ropfetch i0")
 
@@ -355,70 +360,74 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
 
         pdg_graph_context = ropfetch_node.getPDGGraphContext() # could call this method on the topnet or wedge and it'd give the same context
 
+
         if use_temp_resolution_bool == True:
+            # Get information about lowres
             lowres_bake_resolution_x_and_y = 1024 # change to what you like
             lowres_export_name_prefix = "{}_{}_".format(self.megascans_asset_name, get_megascans_resolution_str_from_resolution(lowres_bake_resolution_x_and_y))
-            
-            # getting lowres_export_path and lowres_map_name_and_export_paths_dict
-            lowres_bake_object = lod_and_bake.Bake(highpoly_path, customlod_path, maps_to_bake_dict, lowres_bake_resolution_x_and_y, lowres_bake_resolution_x_and_y, self.megascans_asset_folder_path, export_name_prefix = lowres_export_name_prefix)
-            lowres_export_path = lowres_bake_object.export_path
-            lowres_map_name_and_export_paths_dict = lowres_bake_object.map_name_and_export_paths_dict
+            lowres_export_path = lod_and_bake.Bake.get_export_path(self.megascans_asset_folder_path, lowres_export_name_prefix)
+            lowres_map_name_and_export_paths_dict = lod_and_bake.Bake.get_map_name_and_export_paths_dict(maps_to_bake_dict, self.megascans_asset_folder_path, lowres_export_name_prefix)
 
-
-            # modify megascans reader nodes to lowres
+            # Modify megascans reader nodes to lowres
             modify_megascans_material_reader_nodes(self.rs_material_builder_node, self.map_name_and_reader_node_dict, lowres_map_name_and_export_paths_dict)
 
-
-            # configure pdg
+            # Configure pdg
             string_processor(topnet_node, "@ewedge!wedgecount:2!wedgeattributes:2!name1:export_path!type1:4!values1:2!strvalue1_1:{}!strvalue1_2:{}!name2:bake_resolution_x_and_y!type2:2!wedgetype2:2!values2:2!intvalue2_1:{}!intvalue2_2:{}".format(lowres_export_path.replace(" ", "%20"), chosenres_export_path.replace(" ", "%20"), lowres_bake_resolution_x_and_y, chosenres_bake_resolution_x_and_y)) # set parameters on wedge node
 
-            # add event handlers to pdg graph context
+            # Add event handlers to pdg graph context (asks if the user wants to modify megascans reader nodes to chosenres once baking is complete)
             pdg_graph_context.addEventHandler(self.cook_event_handler_one, pdg.EventType.CookComplete, True) # the True means that a handler will be passed to the event handler, as well as the event
-
-
-
         else:
+            # Modify megascans reader nodes to chosenres
             modify_megascans_material_reader_nodes(self.rs_material_builder_node, self.map_name_and_reader_node_dict, self.chosenres_map_name_and_export_paths_dict) # doing before
             
-            # configure pdg
-            string_processor(topnet_node, "@ewedge!wedgecount:2!wedgeattributes:2!name1:export_path!type1:4!values1:1!strvalue1_1:{}!name2:bake_resolution_x_and_y!type2:2!wedgetype2:2!values2:1!intvalue2_1:{}".format(chosenres_export_path.replace(" ", "%20"), chosenres_bake_resolution_x_and_y)) # set parameters on wedge node
+            # Configure pdg
+            string_processor(topnet_node, "@ewedge!wedgecount:1!wedgeattributes:2!name1:export_path!type1:4!values1:1!strvalue1_1:{}!name2:bake_resolution_x_and_y!type2:2!wedgetype2:2!values2:1!intvalue2_1:{}".format(chosenres_export_path.replace(" ", "%20"), chosenres_bake_resolution_x_and_y)) # set parameters on wedge node
             
-            # add event handlers to pdg graph context
+            # Add event handlers to pdg graph context (notifies that cooking is done)
             pdg_graph_context.addEventHandler(self.cook_event_handler_two, pdg.EventType.CookComplete, True) # ^ ditto
             
 
         hou.hipFile.save() # executeGraph uses the last saved hipfile version
-        ropfetch_node.executeGraph(False, False, False, False)
+        ropfetch_node.executeGraph(False, False, False, False) # note that pdg/topnets render by behind-the-scenes opening the latest save of houdini with the corresponding work item's attributes and rendering there
+
+        # notify user (neilson's heuristics)
+        if use_temp_resolution_bool == True:
+            hou.ui.displayMessage("Baking out temporary 1K resolution maps, and your chosen {chosen_bake_resolution_str} resolution maps now.\n\nYour reader nodes are set to use the paths of the 1K maps. Once {chosen_bake_resolution_str} resolution maps have finished baking, you'll be asked if you want to swap over".format(chosen_bake_resolution_str = chosen_bake_resolution_str), title = "Megascans Fixer") # assuming 1K will bake out first, otherwise the wording needs to change
+        else:
+            hou.ui.displayMessage("Baking out {} resolution maps now, you will be notified when they're done. Your reader nodes are already using the paths of these maps (even though they're not baked yet).".format(chosen_bake_resolution_str), title = "Megascans Fixer")
 
         #-----------------------------------------------
-        # Layout the fix subnet, and set display flag to off
+        fix_subnet_node.setDisplayFlag(False) # to render this needs to be True but since rendering uses a hipfile with this True, it's fine to do here
+        self.set_network_editor_to_megascans_asset_subnet()
+
+        # Layout the fix subnet
         fix_subnet_node.layoutChildren()
         
         # Layout the megascans asset subnet (that holds the fix subnet)
         self.megascans_asset_subnet.layoutChildren()
 
 
-        fix_subnet_node.setDisplayFlag(False) # to render this needs to be True but since rendering uses a hipfile with this True, it's fine to do here
-
-        # the concept of reader nodes (rather, having been explicitly told about them) - the nodes which actually import the maps - has really helped me make this in to elegant code
-
 
     def cook_event_handler_one(self, handler, event): # because this event handler is passed the handler too
         # Ask if they want to swap over to highres maps (if yes, swap over)
-        message_string = "Chosen resolution has finished rendering. Would you like to swap over to the highres maps now?\n\nNote that you are currently using the temporary 1K resolution maps.  If you want to do this manually, note the reader nodes/params are...."
-        user_choice = hou.ui.displayMessage(message_string, title = "Chosen resolution has finished rendering", buttons = ('Yes', 'No'), default_choice = 0) # 0 is Yes, 1 is No
+        nice_string_of_map_name_and_reader_node_dict = get_nice_string_of_map_name_and_reader_node_dict(self.map_name_and_reader_node_dict)
+        message_string = "Your {} resolution maps have finished baking. Currently your reader nodes are set to use the paths of the 1K maps, would you like your reader nodes to swap over to your chosen resolution maps now?\n\nIf you want to do this manually, note the map name and the correspond reader nodes / reader parameters are:\n{}".format(self.chosen_bake_resolution_str, nice_string_of_map_name_and_reader_node_dict)
+        
+        user_choice = hou.ui.displayMessage(message_string, title = "Megascans Fixer", buttons = ('Yes', 'No'), default_choice = 0) # 0 is Yes, 1 is No
         if user_choice == 0:
             modify_megascans_material_reader_nodes(self.rs_material_builder_node, self.map_name_and_reader_node_dict, self.chosenres_map_name_and_export_paths_dict)
-            hou.ui.displayMessage("Reader nodes updated successfully")
+            hou.ui.displayMessage("Reader nodes updated to your {} resolution maps successfully".format(self.chosen_bake_resolution_str), title = "Megascans Fixer")
 
-        handler.removeFromAllEmitters() # remove this event handler from the event (rather, delete the emitters from the handler)
+        handler.removeFromAllEmitters() # remove this event handler from the event (rather, delete the emitters (the 'mouth') from the handler). Doing this so that a user doesn't get confused when they re-render, perhaps it's a good thing to keep the eventhandler?
 
     def cook_event_handler_two(self, handler, event):
         hou.ui.displayMessage("Cooking complete!")
 
+        handler.removeFromAllEmitters() # ^ ditto
 
     def set_network_editor_to_megascans_asset_subnet(self):
-        # Set Network Editor pane to view the level with the megascans asset subnet - as oppose to inside the fix_subnet_node, which it currently goes to
+        # Set Network Editor pane to view the level with the megascans asset subnet - as oppose to inside the fix_subnet_node (which it currently goes to)
+
         network_editor = [pane for pane in hou.ui.paneTabs() if isinstance(pane, hou.NetworkEditor) and pane.isCurrentTab()][0] # assuming just one. 
         # ^ as per: https://forums.odforce.net/topic/12406-getting-the-current-active-network-editor-pane/, doesn't seem like there's a better way to do it nowadays
         network_editor.setCurrentNode(self.megascans_asset_subnet)
@@ -427,7 +436,7 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
 def main():
     selected_node_list = hou.selectedNodes()
     if len(selected_node_list) != 1:
-        raise Exception("Zero or Multiple nodes selected. Are you sure you've selected a single Megascans Asset Subnetwork?")
+        raise hou.ui.displayMessage("Zero or Multiple nodes selected. Are you sure you've selected a single Megascans Asset Subnetwork?", title = "Megascans Fixer")
         
     selected_node = selected_node_list[0] # to access later on
     megascans_asset_subnet = selected_node # assumming
@@ -435,7 +444,7 @@ def main():
     try:
         megascans_asset_object = MegascansAsset(megascans_asset_subnet)
     except Exception as exception:
-        hou.ui.displayMessage("Error Occured:\n\n{}\n\nPlease try again".format(exception))
+        hou.ui.displayMessage("Error Occured:\n\n{}\n\nPlease try again".format(exception), title = "Megascans Fixer")
         raise SystemExit # good practice way to exit according to https://stackoverflow.com/questions/19747371/python-exit-commands-why-so-many-and-when-should-each-be-used
 
     megascans_asset_subnet.setDisplayFlag(True) # baking requires its display flag is visible
@@ -443,7 +452,7 @@ def main():
     ui = ui_attempt.MegascansFixerDialog(megascans_asset_object)
     ui.show()
 
-    # the above handles calling the 'execute_fix' method upon the 'Go!' button being pressed
+    # the ui above handles calling the 'execute_fix' method upon the 'Go!' button being pressed
 
 
 
