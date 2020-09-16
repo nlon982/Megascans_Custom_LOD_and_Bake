@@ -20,7 +20,7 @@ def check_path(a_path):
 
 class Bake:
     # makes sense that these are class variables. Recall that the benefit of class variables is that they aren't created for each instance all over again & they can be accessed without instantiating the class
-    map_name_and_houdini_parameter_name_dict = {"Tangent-Space Normal" : "vm_quickplane_Nt", "Displacement" : "vm_quickplane_Ds", "Vector Displacement" : "vm_quickplane_Vd", "Tangent-Space Vector Displacement" : "vm_quickplane_Vdt", "Occlusion" : "vm_quickplane_Oc", "Cavity" : "vm_quickplane_Cv", "Thickness" : "vm_quickplane_Th", "Curvature" : "vm_quickplane_Cu"} 
+    map_name_and_houdini_parameter_name_dict = {"Tangent-Space Normal" : "vm_quickplane_Nt", "Displacement" : "vm_quickplane_Ds", "Vector Displacement" : "vm_quickplane_Vd", "Tangent-Space Vector Displacement" : "vm_quickplane_Vdt", "Occlusion" : "vm_quickplane_Oc", "Cavity" : "vm_quickplane_Cv", "Thickness" : "vm_quickplane_Th", "Curvature" : "vm_quickplane_Cu", "Shading Position" : "vm_quickplane_P", "Shading Normal" : "vm_quickplane_N"} 
     
     maps_to_bake_dict_template = dict()
     for map_name in map_name_and_houdini_parameter_name_dict.keys(): # less repeating code by generating it here

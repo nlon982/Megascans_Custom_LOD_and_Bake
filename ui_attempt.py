@@ -2,17 +2,14 @@ from huilib import *
 import lod_and_bake
 import re
 
-import time
-
 import hdefereval
-import threading
 
 def get_valid_name(name): # works for Houdini name and Houdini ui name
     return re.sub("[^0-9a-zA-Z\.]+", "_", name).lower() # the lower is something nice but extra
 
 class MegascansFixerDialog(HDialog):
         def __init__(self, megascans_asset_object):
-                super(MegascansFixerDialog, self).__init__("Namegoeshere", "Megascans Fixer")
+                super(MegascansFixerDialog, self).__init__("Namegoeshere", "Megascans Custom LOD & Baking Tool")
                 self.megascans_asset_object = megascans_asset_object # Note, this importantly calls the 'execute_fix' method when the go button is pressed
                 # ^ continued: otherwise, use however you please (perhaps have it show the path of the megascans asset). 
 
@@ -24,7 +21,7 @@ class MegascansFixerDialog(HDialog):
                 # assigning a Gadget to self.variablename (a personalised variable name too) when I know i'll access it later
                 
                 #--------------Prep
-                self.displacement_type_menu_list = ["Displacement", "Vector Displacement"]
+                self.displacement_type_menu_list = ["Displacement", "Vector Displacement", "Tangent-Space Vector Displacement"]
 
                 self.map_resolution_menu_list = ["8K", "4K", "2K", "1K"]
 
@@ -132,7 +129,7 @@ class MegascansFixerDialog(HDialog):
                 map_names_list = list(lod_and_bake.Bake.map_name_and_houdini_parameter_name_dict.keys())
                 map_names_list.remove("Displacement") # delete because used above
                 map_names_list.remove("Vector Displacement") # ^
-                map_names_list.remove("Tangent-Space Vector Displacement") # (TODO) the rest of my code hasn't accounted for Tangent-Space Vector Displacement, removing for now
+                map_names_list.remove("Tangent-Space Vector Displacement")
 
                 self.other_maps_to_bake_checkbox_dict = dict()
                 for map_name in map_names_list:
