@@ -358,16 +358,16 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
 
 
         # Hardcoded logic on Megascans Material's Node Setup
-        try:
-            bake_normal_bool = maps_to_bake_dict["Normal"]
-        except: # "Normal" is not in maps_to_bake_dict
-            pass
-        else:
-            if bake_normal_bool == True:
-                for child in self.rs_material_builder_node.children(): # destroy the legacy normal map
-                    if child.type().name() == "redshift::NormalMap":
-                        child.destroy()
-                        break
+        #try:
+        #    bake_normal_bool = maps_to_bake_dict["Normal"]
+        #except: # "Normal" is not in maps_to_bake_dict
+        #    pass
+        #else:
+        #    if bake_normal_bool == True:
+        #        for child in self.rs_material_builder_node.children(): # destroy the legacy normal map
+        #            if child.type().name() == "redshift::NormalMap":
+        #                child.destroy()
+        #                break
 
         # Add to Megascans Material's Node Setup
         add_to_megascans_material_node_setup(self.rs_material_builder_node, map_name_and_node_setup_dict, current_bump_blender_layer) # puts "todo" where export paths should go (modify_megascans_material_reader_nodes sorts that out)
@@ -439,7 +439,7 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         if use_temp_resolution_bool == True:
             hou.ui.displayMessage("Baking out temporary 1K resolution maps, and your chosen {chosen_bake_resolution_str} resolution maps now.\n\nYour reader nodes are set to use the paths of the 1K maps. Once {chosen_bake_resolution_str} resolution maps have finished baking, you'll be asked if you want to swap over".format(chosen_bake_resolution_str = chosen_bake_resolution_str), title = "Megascans Custom LOD & Baking Tool") # assuming 1K will bake out first, otherwise the wording needs to change
         else:
-            hou.ui.displayMessage("Baking out {} resolution maps now, you will be notified when they're done. Your reader nodes exist already, using the paths of these maps (even though they're not baked yet).".format(chosen_bake_resolution_str), title = "Megascans Custom LOD & Baking Tool")
+            hou.ui.displayMessage("Baking out {} resolution maps now, you will be notified when they're done. Your reader nodes are already using the paths of these maps (even though they're not baked yet).".format(chosen_bake_resolution_str), title = "Megascans Custom LOD & Baking Tool")
 
         #-----------------------------------------------
 
