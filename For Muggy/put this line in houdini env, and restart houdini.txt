@@ -1,1 +1,0 @@
-PYTHONPATH = "path to folder containing 'big_framework.py' 'huilib.py' 'lod_and_bake.py' 'megascans_fixer.py' and 'ui_attempt.py'"

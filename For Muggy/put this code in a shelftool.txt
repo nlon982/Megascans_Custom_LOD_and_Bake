@@ -1,6 +1,0 @@
-import hdefereval
-
-import megascans_fixer
-reload(megascans_fixer) # so houdini doesn't use the pre-compiled
-
-hdefereval.executeDeferred(megascans_fixer.main)

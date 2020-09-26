@@ -288,7 +288,7 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
 
     def execute_fix(self, polyreduce_percentage_float, maps_to_bake_dict, chosen_bake_resolution_str, use_temp_resolution_bool): # can't think of a better name
         # Step 1 and 2 are housed in this subnet node
-        fix_subnet_node = self.megascans_asset_subnet.createNode("subnet", "Megascans_Fixer_Subnet") # Feel free to change name
+        fix_subnet_node = self.megascans_asset_subnet.createNode("subnet", "Megascans_Custom_LOD_and_Baking_Subnet") # Feel free to change name
 
         self.chosen_bake_resolution_str = chosen_bake_resolution_str # nice to have here.. perhaps think of a systematic way to save all the relevant info to attributes
 
@@ -468,7 +468,7 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
 
         # notify user (neilson's heuristics)
         if use_temp_resolution_bool == True:
-            hou.ui.displayMessage("Baking out temporary 1K resolution maps, and your chosen {chosen_bake_resolution_str} resolution maps now.\n\nYour reader nodes have been created, they are set to use the paths of the 1K maps. Once {chosen_bake_resolution_str} resolution maps have finished baking, you'll be asked if you want to swap over your reader nodes to these,".format(chosen_bake_resolution_str = chosen_bake_resolution_str), title = "Megascans Custom LOD & Baking Tool") # assuming 1K will bake out first, otherwise the wording needs to change
+            hou.ui.displayMessage("Baking out temporary 1K resolution maps, and your chosen {chosen_bake_resolution_str} resolution maps now.\n\nYour reader nodes have been created, they are set to use the paths of the 1K maps. Once {chosen_bake_resolution_str} resolution maps have finished baking, you'll be asked if you want to swap over your reader nodes to these.".format(chosen_bake_resolution_str = chosen_bake_resolution_str), title = "Megascans Custom LOD & Baking Tool") # assuming 1K will bake out first, otherwise the wording needs to change
         else:
             hou.ui.displayMessage("Baking out {} resolution maps now, you will be notified when they're done.\n\nYour reader nodes have been created. they are using the paths of these maps (even though they're not baked yet).".format(chosen_bake_resolution_str), title = "Megascans Custom LOD & Baking Tool")
 
@@ -487,7 +487,7 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         self.megascans_asset_subnet.layoutChildren()
 
     def all_done(self):
-        hou.ui.displayMessage("All done! Seriously, this shelf tool has ended (everything. Thanks for using me")
+        hou.ui.displayMessage("All done! Seriously, this shelf tool has finished. Thanks for using me")
 
     def cook_event_handler_one(self, handler, event): # because this event handler is passed the handler too
         # Ask if they want to swap over to chosenres maps (if yes, swap over)
