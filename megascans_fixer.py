@@ -206,7 +206,7 @@ def modify_megascans_material_reader_nodes(rs_material_builder_node, map_name_an
 
         # doing this way, rather than using string processor (as the latter doesn't simplify things)
         reader_node = hou.node("{}/{}".format(rs_material_builder_node.path(), reader_node_name))
-        print(reader_node_name, reader_node_param_name)
+        #print(reader_node_name, reader_node_param_name)
         reader_node.parm(reader_node_param_name).set(export_path)
 
 def get_nice_string_of_map_name_and_reader_node_dict(map_name_and_reader_node_dict):
@@ -257,8 +257,8 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
 
 
     # Muggy's request kinda
-    map_name_and_node_setup_dict["Displacement"] = "cTextureSampler-CB_Displacement!tex0:{export_path} i0 cDisplacement!map_encoding:2!space_type:1 i0" # Map Encoding 0 is Vector, 2 is Height Field. Space Type 1 is object, 2 is Tangent.
-    map_name_and_node_setup_dict["Vector Displacement"] = "cTextureSampler-CB_Vector_Displacement!tex0:{export_path} i0 cDisplacement!map_encoding:0!space_type:1 i0"
+    map_name_and_node_setup_dict["Displacement"] = "cTextureSampler-CB_Displacement_1!tex0:{export_path} i0 cDisplacement-CB_Displacement_2!map_encoding:2!space_type:1 i0" # Map Encoding 0 is Vector, 2 is Height Field. Space Type 1 is object, 2 is Tangent.
+    map_name_and_node_setup_dict["Vector Displacement"] = "cTextureSampler-CB_Vector_Displacement_1!tex0:{export_path} i0 cDisplacement-CB_Vector_Displacement_2!map_encoding:0!space_type:1 i0"
     map_name_and_node_setup_dict["Tangent-Space Vector Displacement"] = "cTextureSampler-CB_Tangent-Space_Vector_Displacement_1!tex0:{export_path} i0 cDisplacement-CB_Tangent-Space_Vector_Displacement_2!map_encoding:0!space_type:2 i0"
 
     map_name_and_node_setup_dict["Tangent-Space Normal"] = "@cNormalMap-CB_Tangent-Space_Normal!tex0:{export_path}"
@@ -298,14 +298,14 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         if chosen_bake_resolution_str == "1K": # simplifies things to get this out of the way now
             use_temp_resolution_bool = False
 
-        try:
-            bake_vector_displacement_bool = maps_to_bake_dict["Vector Displacement"]
-            bake_displacement_bool = maps_to_bake_dict["Displacement"]
-        except: # they aren't both in maps_to_bake_dict
-            pass
-        else:
-            if bake_vector_displacement_bool == True and bake_displacement_bool == True: # with the GUI, should be an impossible thing to happen anyway
-                maps_to_bake_dict["Displacement"] = False
+        #try:
+        #    bake_vector_displacement_bool = maps_to_bake_dict["Vector Displacement"]
+        #    bake_displacement_bool = maps_to_bake_dict["Displacement"]
+        #except: # they aren't both in maps_to_bake_dict
+        #    pass
+        #else:
+        #    if bake_vector_displacement_bool == True and bake_displacement_bool == True: # with the GUI, should be an impossible thing to happen anyway
+        #        maps_to_bake_dict["Displacement"] = False
 
 
         # modify a copy of map_name_and_node_setup_dict to only have maps which we are baking
@@ -324,8 +324,9 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         #-----------------------------------------------
         # Step 1) Make Custom LOD
 
-        customlod_name = self.megascans_asset_name + "_LOD_custom_{}percent.fbx".format(polyreduce_percentage_float)
+        customlod_name = self.megascans_asset_name + "_LOD{}percent_custom.fbx".format(polyreduce_percentage_float)
         customlod_path = os_path_join_fix(self.megascans_asset_folder_path, customlod_name)
+
 
         highpoly_name_list = get_maps_of_name_type_and_res(self.file_scan, "High", file_extension_list = [".fbx"]) # pick best from sorted, which is at index 0
         if len(highpoly_name_list) == 0:
@@ -335,12 +336,18 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         else:
             highpoly_name = highpoly_name_list[0] # the 0'th index is the highest resolution
         highpoly_path = os_path_join_fix(self.megascans_asset_folder_path, highpoly_name)
-        
+            
         a_lod_object = lod_and_bake.LOD(highpoly_path, polyreduce_percentage_float, customlod_path)
-        a_lod_object.create_and_execute_in_houdini(fix_subnet_node)
-        # feel free to turn off for testing purposes
 
-        self.file_node.parm("file").set(customlod_path) # good to do this here, since it's ready? or perhaps this step should wait until atleast maps have been baked and setup
+        a_lod_object.create_in_houdini(fix_subnet_node)
+
+        if os.path.exists(customlod_path) == False:
+            hou.ui.displayMessage("Baking out {} percent LOD now (this should freeze Houdini).\n\nOnce this has finished baking your asset's geometry will be set to use this LOD too.".format(polyreduce_percentage_float))
+            a_lod_object.execute_in_houdini()
+        else:
+            hou.ui.displayMessage("A LOD that's {} percent already exists at:\n {}\n\nUsing that instead of re-baking\n\nYour asset's geometry will be set to use this LOD too.".format(polyreduce_percentage_float, customlod_path))
+
+        self.file_node.parm("file").set(customlod_path) # could go inside if block. Having it here is a bit of fool proofing
 
         #-----------------------------------------------
         # Step 3) Configure and Modify Megascans Material's Node Setup (enable tessalation, displacement etc. and edit node setup)
@@ -353,21 +360,28 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
 
 
         # Create Bump Blender (note, I have not changed layer blend weights like I did last time!) in Megascans Material's Node Setup
-        string_processor(self.rs_material_builder_node, "cBumpBlender-bump_blender i0 e{} i2".format(self.redshift_material_node.name()))
+        #string_processor(self.rs_material_builder_node, "cBumpBlender-bump_glender i0 e{} i2".format(self.redshift_material_node.name()))
         current_bump_blender_layer = 0 # assuming 'Base' on BumpBlender doesn't need to be used
 
 
         # Hardcoded logic on Megascans Material's Node Setup
-        try:
-            bake_normal_bool = maps_to_bake_dict["Normal"]
-        except: # "Normal" is not in maps_to_bake_dict
-            pass
-        else:
-            if bake_normal_bool == True:
-                for child in self.rs_material_builder_node.children(): # destroy the legacy normal map
-                    if child.type().name() == "redshift::NormalMap":
-                        child.destroy()
-                        break
+        #try:
+        #    bake_normal_bool = maps_to_bake_dict["Normal"]
+        #except: # "Normal" is not in maps_to_bake_dict
+        #    pass
+        #else:
+        #    if bake_normal_bool == True:
+        #        for child in self.rs_material_builder_node.children(): # destroy the legacy normal map
+        #            if child.type().name() == "redshift::NormalMap":
+        #                child.destroy()
+        #                break
+
+
+        if len(map_name_and_node_setup_dict.keys()) == 0:
+            self.tidy(fix_subnet_node)
+            self.all_done()
+            raise SystemExit # they didn't ask for any maps to be baked
+
 
         # Add to Megascans Material's Node Setup
         add_to_megascans_material_node_setup(self.rs_material_builder_node, map_name_and_node_setup_dict, current_bump_blender_layer) # puts "todo" where export paths should go (modify_megascans_material_reader_nodes sorts that out)
@@ -379,7 +393,7 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
 
         # Get information about chosenres
         chosenres_bake_resolution_x_and_y = get_resolution_from_megascans_resolution_str(chosen_bake_resolution_str)
-        chosenres_export_name_prefix =  "{}_{}_".format(self.megascans_asset_name, chosen_bake_resolution_str)
+        chosenres_export_name_prefix =  "{}_{}_LOD{}_".format(self.megascans_asset_name, chosen_bake_resolution_str, polyreduce_percentage_float)
         chosenres_export_path = lod_and_bake.Bake.get_export_path(self.megascans_asset_folder_path, chosenres_export_name_prefix)
         self.chosenres_map_name_and_export_paths_dict = lod_and_bake.Bake.get_map_name_and_export_paths_dict(maps_to_bake_dict, self.megascans_asset_folder_path, chosenres_export_name_prefix) # this is a attribute so that cook_event_handler_one can access it
         
@@ -409,7 +423,7 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         if use_temp_resolution_bool == True:
             # Get information about lowres
             lowres_bake_resolution_x_and_y = 1024 # change to what you like
-            lowres_export_name_prefix = "{}_{}_".format(self.megascans_asset_name, get_megascans_resolution_from_map_str_from_resolution(lowres_bake_resolution_x_and_y))
+            lowres_export_name_prefix = "{}_{}_LOD{}_".format(self.megascans_asset_name, get_megascans_resolution_from_map_str_from_resolution(lowres_bake_resolution_x_and_y), polyreduce_percentage_float)
             lowres_export_path = lod_and_bake.Bake.get_export_path(self.megascans_asset_folder_path, lowres_export_name_prefix)
             lowres_map_name_and_export_paths_dict = lod_and_bake.Bake.get_map_name_and_export_paths_dict(maps_to_bake_dict, self.megascans_asset_folder_path, lowres_export_name_prefix)
 
@@ -435,11 +449,6 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         hou.hipFile.save() # executeGraph uses the last saved hipfile version
         ropfetch_node.executeGraph(False, False, False, False) # note that pdg/topnets render by behind-the-scenes opening the latest save of houdini with the corresponding work item's attributes and rendering there
 
-        # notify user (neilson's heuristics)
-        if use_temp_resolution_bool == True:
-            hou.ui.displayMessage("Baking out temporary 1K resolution maps, and your chosen {chosen_bake_resolution_str} resolution maps now.\n\nYour reader nodes are set to use the paths of the 1K maps. Once {chosen_bake_resolution_str} resolution maps have finished baking, you'll be asked if you want to swap over".format(chosen_bake_resolution_str = chosen_bake_resolution_str), title = "Megascans Custom LOD & Baking Tool") # assuming 1K will bake out first, otherwise the wording needs to change
-        else:
-            hou.ui.displayMessage("Baking out {} resolution maps now, you will be notified when they're done. Your reader nodes exist already, using the paths of these maps (even though they're not baked yet).".format(chosen_bake_resolution_str), title = "Megascans Custom LOD & Baking Tool")
 
         #-----------------------------------------------
 
@@ -452,8 +461,24 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
             recursively_add_to_network_box(network_box, reader_node)
         network_box.fitAroundContents()
 
+        a_vector = hou.Vector2(2, 0) # hard coded (the size needed to fit the comment above)
+        network_box.resize(a_vector)
+
+        self.tidy(fix_subnet_node) # layout all the necessary things
+
+        # notify user (neilson's heuristics)
+        if use_temp_resolution_bool == True:
+            hou.ui.displayMessage("Baking out temporary 1K resolution maps, and your chosen {chosen_bake_resolution_str} resolution maps now.\n\nYour reader nodes have been created, they are set to use the paths of the 1K maps. Once {chosen_bake_resolution_str} resolution maps have finished baking, you'll be asked if you want to swap over your reader nodes to these,".format(chosen_bake_resolution_str = chosen_bake_resolution_str), title = "Megascans Custom LOD & Baking Tool") # assuming 1K will bake out first, otherwise the wording needs to change
+        else:
+            hou.ui.displayMessage("Baking out {} resolution maps now, you will be notified when they're done.\n\nYour reader nodes have been created. they are using the paths of these maps (even though they're not baked yet).".format(chosen_bake_resolution_str), title = "Megascans Custom LOD & Baking Tool")
+
+
+    def tidy(self, fix_subnet_node):
         fix_subnet_node.setDisplayFlag(False) # to render, this needs to be True but since rendering uses a hipfile with this True, it's fine to do here
         self.set_network_editor_to_view_megascans_asset_subnet()
+
+        # Layout rs material builder node
+        self.rs_material_builder_node.layoutChildren()
 
         # Layout the fix subnet
         fix_subnet_node.layoutChildren()
@@ -461,7 +486,8 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
         # Layout the megascans asset subnet (that holds the fix subnet)
         self.megascans_asset_subnet.layoutChildren()
 
-
+    def all_done(self):
+        hou.ui.displayMessage("All done! Seriously, this shelf tool has ended (everything. Thanks for using me")
 
     def cook_event_handler_one(self, handler, event): # because this event handler is passed the handler too
         # Ask if they want to swap over to chosenres maps (if yes, swap over)
@@ -475,10 +501,14 @@ class MegascansAsset: # this seems clean. Makes sense to make a class to hold al
 
         handler.removeFromAllEmitters() # remove this event handler from the event (rather, delete the emitters (the 'mouth') from the handler). Doing this so that a user doesn't get confused when they re-render, perhaps it's a good thing to keep the eventhandler?
 
+        self.all_done()
+
     def cook_event_handler_two(self, handler, event):
-        hou.ui.displayMessage("Cooking {} resolution maps complete! Note, your reader nodes are already set to the paths of these".format(self.chosen_bake_resolution_str))
+        hou.ui.displayMessage("Your {} resolution maps have finished baking! Note, your reader nodes are already set to the paths of these".format(self.chosen_bake_resolution_str))
 
         handler.removeFromAllEmitters() # ^ ditto
+
+        self.all_done()
 
     def set_network_editor_to_view_megascans_asset_subnet(self):
         # Set Network Editor pane to view the level with the megascans asset subnet - as oppose to inside the fix_subnet_node (which it currently goes to)

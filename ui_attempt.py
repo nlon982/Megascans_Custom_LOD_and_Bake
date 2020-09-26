@@ -32,8 +32,27 @@ class MegascansFixerDialog(HDialog):
                 sep.setAttributes(look = 'bevel')
 
                 #-------------- Header
-                label0 = HLabel("Megascans Asset Subnet: {}".format(self.megascans_asset_object.megascans_asset_subnet.path()))
+                label0 = HLabel("Megascans Asset:")
                 self.addGadget(label0)
+
+                
+
+
+                header_row_layout = HRowLayout()
+                self.addLayout(header_row_layout)
+
+                space_column_layout0 = HColumnLayout()
+                space_column_layout0.setAttributes(width = 0.25)
+                header_row_layout.addLayout(space_column_layout0)
+
+                other_column_layout0 = HColumnLayout()
+                header_row_layout.addLayout(other_column_layout0)
+
+                label0point1 = HLabel("Subnet: {}".format(self.megascans_asset_object.megascans_asset_subnet.path()))
+                other_column_layout0.addGadget(label0point1)
+
+                label0point2 = HLabel("Location on disk: {}".format(megascans_asset_object.megascans_asset_folder_path))
+                other_column_layout0.addGadget(label0point2)
 
                 self.addGadget(sep)
 
@@ -76,7 +95,7 @@ class MegascansFixerDialog(HDialog):
                 self.addGadget(sep)
                 
                 #-------------- Displacement Baking options (everything layout/widget without a personalised baking name has '2' on it)
-                label2 = HLabel("Displacement Baking options:")
+                label2 = HLabel("Displacement Maps to Bake:")
                 self.addGadget(label2)
                 
 
@@ -97,9 +116,15 @@ class MegascansFixerDialog(HDialog):
                 space_column_layout2.addGadget(space_label2)    
                 
                 #other_column_layout2
-                self.displacement_type_menu = HStringMenu("displacement_type_menu", "Displacement Map Type", self.displacement_type_menu_list)
-                other_column_layout2.addGadget(self.displacement_type_menu)
+                self.displacement_types_to_bake_checkbox_dict = dict()
+                for map_name in self.displacement_type_menu_list:
+                    checkbox_name = get_valid_name(map_name) # checkbox label is map_name
+                    a_checkbox = HCheckbox(checkbox_name, map_name)
+                    a_checkbox.setValue("0") # this is the fix re: huilib having problems with the default value
 
+                    other_column_layout2.addGadget(a_checkbox)
+                        
+                    self.displacement_types_to_bake_checkbox_dict[map_name] = a_checkbox # save for a rainy day
 
                 
                 # sep
@@ -127,19 +152,18 @@ class MegascansFixerDialog(HDialog):
 
 
                 map_names_list = list(lod_and_bake.Bake.map_name_and_houdini_parameter_name_dict.keys())
-                map_names_list.remove("Displacement") # delete because used above
-                map_names_list.remove("Vector Displacement") # ^
-                map_names_list.remove("Tangent-Space Vector Displacement")
+                for displacement_map_name in self.displacement_type_menu_list: # i.e. delete "Displacement", "Vector Displacement", "Tangent-Space Vector Displacement" since it's already in above
+                    map_names_list.remove(displacement_map_name)
 
                 self.other_maps_to_bake_checkbox_dict = dict()
                 for map_name in map_names_list:
-                        checkbox_name = get_valid_name(map_name) # checkbox label is map_name
-                        a_checkbox = HCheckbox(checkbox_name, map_name)
-                        a_checkbox.setValue("0") # this is the fix re: huilib having problems with the default value
+                    checkbox_name = get_valid_name(map_name) # checkbox label is map_name
+                    a_checkbox = HCheckbox(checkbox_name, map_name)
+                    a_checkbox.setValue("0") # this is the fix re: huilib having problems with the default value
 
-                        other_maps_collapser_layout.addGadget(a_checkbox)
+                    other_maps_collapser_layout.addGadget(a_checkbox)
                         
-                        self.other_maps_to_bake_checkbox_dict[map_name] = a_checkbox # save for a rainy day
+                    self.other_maps_to_bake_checkbox_dict[map_name] = a_checkbox # save for a rainy day
 
 
                 self.addGadget(sep)
@@ -195,25 +219,25 @@ class MegascansFixerDialog(HDialog):
                 # ^ works perfectly for my purpose
 
         def get_information_ready_and_send_to_execute_fix(self):
-                # Get information from UI (I have types in the variable names for the sake of clarity)
+                #-------------- Get information from UI (I have types in the variable names for the sake of clarity)
                 polyreduce_percentage_float = float(self.polyreduce_percentage_slider.getValue())
-                
-                displacement_type_str = self.displacement_type_menu_list[self.displacement_type_menu.getValue()]
 
+                # add displacement & other ticked maps to maps_to_bake_dict
+                # merge dicts (ugly way to do it?)
+                all_maps_to_bake_checkbox_dict = dict()
+                for map_name in self.displacement_types_to_bake_checkbox_dict:
+                    all_maps_to_bake_checkbox_dict[map_name] = self.displacement_types_to_bake_checkbox_dict[map_name]
+                for map_name in self.other_maps_to_bake_checkbox_dict:
+                    all_maps_to_bake_checkbox_dict[map_name] = self.other_maps_to_bake_checkbox_dict[map_name]
 
-                # construct maps_to_bake_dict
                 maps_to_bake_dict = lod_and_bake.Bake.maps_to_bake_dict_template.copy() # dictionaries are mutable, so need to make a copy as to not modify the original!
-
-                maps_to_bake_dict[displacement_type_str] = True # add what displacement to maps_to_bake_dict
-
-                # add other ticked maps to maps_to_bake_dict
-                for map_name in self.other_maps_to_bake_checkbox_dict.keys():
-                        checkbox_value = self.other_maps_to_bake_checkbox_dict[map_name].isChecked() # like the above
-                        if checkbox_value == "0" or checkbox_value == 0: # I still don't know what's going on behind the scenes
-                                bake_bool = False
-                        else:
-                                bake_bool = True
-                        maps_to_bake_dict[map_name] = bake_bool
+                for map_name in all_maps_to_bake_checkbox_dict.keys():
+                    checkbox_value = all_maps_to_bake_checkbox_dict[map_name].isChecked() # like the above
+                    if checkbox_value == "0" or checkbox_value == 0: # I still don't know what's going on behind the scenes
+                            bake_bool = False
+                    else:
+                            bake_bool = True
+                    maps_to_bake_dict[map_name] = bake_bool
 
                 # regarding resolution
                 map_resolution_str = self.map_resolution_menu_list[self.map_resolution_menu.getValue()]

@@ -115,12 +115,24 @@ class LOD:
 
         self.export_path = export_path
 
+        self.rop_fbx_node = None
 
-    def create_and_execute_in_houdini(self, housing_node): # includes executing
+
+    def create_in_houdini(self, housing_node): # includes executing
+        if self.rop_fbx_node != None:
+            raise Exception("Already created in houdini, rop_fbx_node: {}".format(self.rop_fbx_node))
+
         custom_lod_node = housing_node.createNode("geo", "Custom_LOD")
         string_processor(custom_lod_node,"cfile-file_node i0 cconvert-convert_node i0 econvert_node i0 cpolyreduce::2.0-polyreduce_node i0 epolyreduce_node i0 crop_fbx-rop_fbx_node i0")
         
         hou.hipFile.save() # save hip file before render
-        string_processor(custom_lod_node, "@efile_node!file:{} @epolyreduce_node!percentage:{}!reducepassedtarget:+!originalpoints:+ @erop_fbx_node!sopoutput:{}!execute:=".format(self.highpoly_path.replace(" ", "%20"), self.polyreduce_percentage, self.export_path.replace(" ", "%20")))
+        string_processor(custom_lod_node, "@efile_node!file:{} @epolyreduce_node!percentage:{}!reducepassedtarget:+!originalpoints:+ @erop_fbx_node!sopoutput:{}".format(self.highpoly_path.replace(" ", "%20"), self.polyreduce_percentage, self.export_path.replace(" ", "%20")))
+        
+        self.rop_fbx_node = hou.node(custom_lod_node.path() + "/rop_fbx_node") # todo, add foolproofing (add the name as formats to the above)
+
+    def execute_in_houdini(self):
+        if self.rop_fbx_node != None:
+            self.rop_fbx_node.parm("execute").pressButton()
+
 
     # I should really split this to have 'create_in_houdini' and execute_in_houdini', as above
