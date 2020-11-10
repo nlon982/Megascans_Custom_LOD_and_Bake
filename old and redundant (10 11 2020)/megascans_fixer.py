@@ -4,21 +4,21 @@ import time
 
 from big_framework import *
 
-import ui_attempt
+import megascans_custom_lod_and_bake_ui
 import lod_and_bake
 
 import pdg
 
 # so houdini doesn't use the precompiled:
-reload(ui_attempt)
+reload(megascans_custom_lod_and_bake_ui)
 reload(lod_and_bake)
 
 
 # so to copy and paste all the code means I have to delete 'ui_attempt.' preceding etc.
 
 
-def os_path_join_fix(
-        *args):  # because Houdini likes to use forward slashes. Note, this is just cosmetic, it doesn't have an effect.
+def os_path_join_for_houdini(
+        *args):  # because Houdini likes to use forward slashes. Note, this is just cosmetic
     a_path = ""
     if len(args) == 0:
         return a_path
@@ -65,7 +65,7 @@ def get_resolution_int(resolution_str):
     return int(resolution_str[:-1]) * 1024
 
 
-def get_resolution_from_megascans_map(file_path_or_name):
+def get_resolution_int_from_megascans_map(file_path_or_name):
     """
     e.g. given "siEoZ_8K_Albedo", return "8K" or 8 * 1024
 
@@ -78,7 +78,7 @@ def get_resolution_from_megascans_map(file_path_or_name):
     return get_resolution_int(resolution_str)
 
 
-def get_highest_resolution(megascans_folder_scan):
+def get_highest_resolution_map(megascans_folder_scan):
     """
     Given a list of file paths or file names of megascans maps, return the highest resolution
 
@@ -89,19 +89,19 @@ def get_highest_resolution(megascans_folder_scan):
     ["blah_2K_boo", "blah_4K_boo", "a_picture.jpg"]
     Returns "4K"
     """
-    resolution_list = list()
+    resolution_int_list = list()
 
     for file_name in megascans_folder_scan:
         try:  # may or may not be map
-            megascans_resolution_int = get_resolution_from_megascans_map(file_name, True)  # this gives e.g. "4K"
-            resolution_list.append(megascans_resolution_int)
-        except:  # if not map (i.e. no resolution)
+            megascans_resolution_int = get_resolution_int_from_megascans_map(file_name)
+            resolution_int_list.append(megascans_resolution_int)
+        except:  # if not map (i.e. resolution not found)
             pass
 
-    if len(resolution_list) == 0:
-        return None  # I think that's the cleanest thing to do, as oppose than returning a default resolution (let that be decided elsewhere)
+    if len(resolution_int_list) == 0:
+        return None
     else:
-        return max(resolution_list) * 1024
+        return max(resolution_int_list) * 1024
 
 
 def get_maps_of_name_type_and_res(megascans_folder_scan, desired_map_name, file_extension_list=None,
@@ -213,23 +213,35 @@ def add_to_megascans_material_node_setup(rs_material_builder_node, map_name_and_
 
 
 # some helper functions to do with big framework
-def get_entry_param_name_from_content(entry,
-                                      param_content):  # e.g. given 'cTextureSampler-bob!hi:hello' (or even just '!hi:hello') and 'hello', give 'hi'
+def get_entry_param_name_from_content(entry, param_content):
+    """
+    e.g. given 'cTextureSampler-bob!hi:hello' (or even just '!hi:hello') and 'hello', give 'hi'
+    """
     param_cropped_right = entry[:entry.find(param_content) - 1]
     param_name = param_cropped_right[param_cropped_right.rfind("!") + 1:]
     return param_name
 
 
 def get_entry_name(entry):
+    """
+    Given an entry give the name of the node
+
+    e.g. "@bob!boo:blah" returns "bob"
+    e.g. "cTextureSampler-John" returns "John"
+    e.g. "cTextureSampler" returns None
+    """
     if entry[0] == "@":  # get rid of one off thing
         entry = entry[1:]
 
     entry_without_params, params = parameter_temp_processor(entry)
 
-    if entry_without_params[0] == "c":
-        entry_type, entry_name = get_name_and_type(entry_without_params[1:])
-    elif entry_without_params[0] == "e":
+    if entry[0] == "c":
+        entry_type, entry_name = get_name_and_type(entry_without_params[1:]) # entry_name will be None if it doesn't have a name
+    elif entry[0] == "e":
         entry_name = entry_without_params[1:]
+    else:
+        raise Exception("BAD INPUT entry: {}, no 'c' or 'e' at start.".format(entry_without_params))
+
     return entry_name
 
 
@@ -364,7 +376,7 @@ class MegascansAsset:  # this seems clean. Makes sense to make a class to hold a
     def execute(self, polyreduce_percentage_float, maps_to_bake_dict, chosen_bake_resolution_str,
                 use_temp_resolution_bool):  # can't think of a better name
         # Step 1 and 2 are housed in this subnet node
-        fix_subnet_node = self.megascans_asset_subnet.createNode("subnet",
+        self.fix_subnet_node = self.megascans_asset_subnet.createNode("subnet",
                                                                  "Megascans_Custom_LOD_and_Baking_Subnet")  # Feel free to change name
 
         self.chosen_bake_resolution_str = chosen_bake_resolution_str  # nice to have here.. perhaps think of a systematic way to save all the relevant info to attributes
@@ -413,7 +425,7 @@ class MegascansAsset:  # this seems clean. Makes sense to make a class to hold a
             customlod_path)  # could go inside if block. Having it here is a bit of fool proofing
 
         # -----------------------------------------------
-        # Step 3) Configure and Modify Megascans Material's Node Setup (enable tessalation, displacement etc. and edit node setup)
+        # Step 3) Configure and Modify Megascans Material's Node Setup (enable tesselation, displacement etc. and edit node setup)
 
         # Enable Tessellation, Displacement, and set Displacement Scale
         self.asset_geometry_node.parm("RS_objprop_rstess_enable").set(1)
@@ -539,7 +551,7 @@ class MegascansAsset:  # this seems clean. Makes sense to make a class to hold a
                 "Baking out {} resolution maps now, you will be notified when they're done.\n\nYour reader nodes have been created. they are using the paths of these maps (even though they're not baked yet).".format(
                     chosen_bake_resolution_str), title="Megascans Custom LOD & Baking Tool")
 
-    def tidy(self, fix_subnet_node):
+    def organise_megascans_asset_subnet_and_hide_fix_subnet(self, fix_subnet_node):
         fix_subnet_node.setDisplayFlag(
             False)  # to render, this needs to be True but since rendering uses a hipfile with this True, it's fine to do here
         self.set_network_editor_to_view_megascans_asset_subnet()
@@ -553,7 +565,7 @@ class MegascansAsset:  # this seems clean. Makes sense to make a class to hold a
         # Layout the megascans asset subnet (that holds the fix subnet)
         self.megascans_asset_subnet.layoutChildren()
 
-    def all_done(self):
+    def all_done_message(self):
         hou.ui.displayMessage("All done! Seriously, this shelf tool has finished. Thanks for using me")
 
     def cook_event_handler_one(self, handler, event):  # because this event handler is passed the handler too
@@ -585,14 +597,12 @@ class MegascansAsset:  # this seems clean. Makes sense to make a class to hold a
 
         self.all_done()
 
-    def set_network_editor_to_view_megascans_asset_subnet(self):
-        # Set Network Editor pane to view the level with the megascans asset subnet - as oppose to inside the fix_subnet_node (which it currently goes to)
-
+    def set_network_editor_to_view_node(a_node): # if multiple network editors, take the latest one (presumably that's what you want)
         network_editor = \
         [pane for pane in hou.ui.paneTabs() if isinstance(pane, hou.NetworkEditor) and pane.isCurrentTab()][
             0]  # assuming just one.
         # ^ as per: https://forums.odforce.net/topic/12406-getting-the-current-active-network-editor-pane/, doesn't seem like there's a better way to do it nowadays
-        network_editor.setCurrentNode(self.megascans_asset_subnet)
+        network_editor.setCurrentNode(a_node)
 
 
 def main():
@@ -614,7 +624,7 @@ def main():
 
     megascans_asset_subnet.setDisplayFlag(True)  # baking requires its display flag is visible
 
-    ui = ui_attempt.MegascansFixerDialog(megascans_asset_object)
+    ui = ui.MegascansFixerDialog(megascans_asset_object)
     ui.show()
 
     # the ui above handles calling the 'execute_fix' method upon the 'Go!' button being pressed

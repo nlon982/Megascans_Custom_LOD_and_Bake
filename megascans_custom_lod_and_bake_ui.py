@@ -48,11 +48,24 @@ class MegascansFixerDialog(HDialog):
                 other_column_layout0 = HColumnLayout()
                 header_row_layout.addLayout(other_column_layout0)
 
-                label0point1 = HLabel("Subnet: {}".format(self.megascans_asset_object.megascans_asset_subnet.path()))
+                label0point1 = HLabel("Subnet: {}".format(self.megascans_asset_object.megascans_asset_subnet_node.path()))
                 other_column_layout0.addGadget(label0point1)
 
                 label0point2 = HLabel("Location on disk: {}".format(megascans_asset_object.megascans_asset_folder_path))
                 other_column_layout0.addGadget(label0point2)
+
+
+                asset_material_object = megascans_asset_object.asset_material_object
+
+                renderer_name = ""
+                if asset_material_object is not None:
+                        renderer_name = asset_material_object.get_renderer_name()
+
+                if renderer_name != "Redshift": # temporary
+                        renderer_name = "Not Redshift"
+
+                label0point3 = HLabel("Renderer: {}".format(renderer_name))
+                other_column_layout0.addGadget(label0point3)
 
                 self.addGadget(sep)
 
@@ -165,7 +178,7 @@ class MegascansFixerDialog(HDialog):
                         
                     self.other_maps_to_bake_checkbox_dict[map_name] = a_checkbox # save for a rainy day
 
-
+                #sep
                 self.addGadget(sep)
 
                 #-------------- Other baking options
@@ -187,10 +200,42 @@ class MegascansFixerDialog(HDialog):
 
                 self.map_resolution_menu = HStringMenu("map_resolution_menu", "Bake Resolution", self.map_resolution_menu_list)
                 other_column_layout4.addGadget(self.map_resolution_menu)
-                
-                self.use_temp_resolution_checkbox = HCheckbox("use_temp_resolution_checkbox", "Temporarily bake and use 1K Resoluton while above resolution is baked (does nothing if 1K is chosen above)")
-                self.use_temp_resolution_checkbox.setValue("0") # because it's not set to ?anything? by default (but should be set to 0 as that corresponds to unticked - so doing it here), which is FUCKED
-                other_column_layout4.addGadget(self.use_temp_resolution_checkbox)
+
+
+                # sep
+                self.addGadget(sep)
+
+                # -------------- More automation options
+                label5 = HLabel("More automation options (currently for Redshift only):")
+                self.addGadget(label5)
+
+                more_automation_options_row_layout = HRowLayout()
+                self.addLayout(more_automation_options_row_layout)
+
+                space_column_layout5 = HColumnLayout()
+                space_column_layout5.setAttributes(width = 0.25)
+                more_automation_options_row_layout.addLayout(space_column_layout5)
+
+                other_column_layout5 = HColumnLayout()
+                more_automation_options_row_layout.addLayout(other_column_layout5)
+
+                self.make_reader_nodes_checkbox = HCheckbox("make_reader_nodes_checkbox", "Automatically create reader nodes, and update export paths of those reader nodes once maps baked (this must be enabled to use the below)")
+                self.make_reader_nodes_checkbox.setValue("0")  # because it's not set to ?anything? by default (but should be set to 0 as that corresponds to unticked - so doing it here), which is messed up
+
+                #label5point1 = HLabel("To enable the following, the above must be enabled:")
+
+                self.use_temp_resolution_checkbox = HCheckbox("use_temp_resolution_checkbox", "Temporarily bake 1K Resolution and set reader nodes to this, while the above 'Bake Resolution' is baked (does nothing if 'Bake Resolution' is 1K)")
+                self.use_temp_resolution_checkbox.setValue("0")  # ^ ditto
+
+                if renderer_name != "Redshift":
+                        self.make_reader_nodes_checkbox.setEnabled(False)
+                        self.use_temp_resolution_checkbox.setEnabled(False)
+
+                self.use_temp_resolution_checkbox.setEnabled(False) # only if make_reader_nodes_checkbox is ticked, then this is enabled True
+
+                other_column_layout5.addGadget(self.make_reader_nodes_checkbox)
+                #other_column_layout5.addGadget(label5point1)
+                other_column_layout5.addGadget(self.use_temp_resolution_checkbox)
 
                 # sep
                 self.addGadget(sep)
@@ -207,8 +252,8 @@ class MegascansFixerDialog(HDialog):
                 bottom_row_layout.addGadget(self.go_button)
                 
                 #-------------- "connect call backs"
-                
                 self.go_button.connect(self.cb_go_button) # close is an inherited method
+                self.make_reader_nodes_checkbox.connect(self.cb_make_reader_nodes_checkbox)
                                 
                 #-------------- Initialize
                 self.initUI()
@@ -217,6 +262,15 @@ class MegascansFixerDialog(HDialog):
                 self.close()
                 hdefereval.executeDeferred(self.get_information_ready_and_send_to_execute_fix) # "gets called after Houdini has done processing the queued UI events"  https://www.sidefx.com/forum/topic/23523/
                 # ^ works perfectly for my purpose
+
+        def cb_make_reader_nodes_checkbox(self):
+                checkbox_value = self.make_reader_nodes_checkbox.isChecked()
+                if checkbox_value == "0" or checkbox_value == 0:  # as below, I still don't know what's going on behind the scenes
+                        self.use_temp_resolution_checkbox.setEnabled(False)
+                else:
+                        self.use_temp_resolution_checkbox.setEnabled(True)
+
+
 
         def get_information_ready_and_send_to_execute_fix(self):
                 #-------------- Get information from UI (I have types in the variable names for the sake of clarity)
@@ -233,7 +287,7 @@ class MegascansFixerDialog(HDialog):
                 maps_to_bake_dict = lod_and_bake.Bake.maps_to_bake_dict_template.copy() # dictionaries are mutable, so need to make a copy as to not modify the original!
                 for map_name in all_maps_to_bake_checkbox_dict.keys():
                     checkbox_value = all_maps_to_bake_checkbox_dict[map_name].isChecked() # like the above
-                    if checkbox_value == "0" or checkbox_value == 0: # I still don't know what's going on behind the scenes
+                    if checkbox_value == "0" or checkbox_value == 0: # 0 corresponds to unticked, and 1 corresponds to ticked. I still don't know what's going on behind the scenes
                             bake_bool = False
                     else:
                             bake_bool = True
@@ -242,8 +296,15 @@ class MegascansFixerDialog(HDialog):
                 # regarding resolution
                 map_resolution_str = self.map_resolution_menu_list[self.map_resolution_menu.getValue()]
 
-                use_temp_resolution_checkbox_value = self.use_temp_resolution_checkbox.isChecked() # checkbox_value is "0" or "1", but I want it False or True for clarity
-                if use_temp_resolution_checkbox_value == "0" or use_temp_resolution_checkbox_value == 0: # 0 corresponds to unticked, and 1 corresponds to ticked. As above, I still don't know what's going on behind the scenes
+
+                make_reader_nodes_checkbox_value = self.make_reader_nodes_checkbox.getValue()
+                if make_reader_nodes_checkbox_value == "0" or make_reader_nodes_checkbox_value == 0:
+                        make_reader_nodes_bool = False
+                else:
+                        make_reader_nodes_bool = True
+
+                use_temp_resolution_checkbox_value = self.use_temp_resolution_checkbox.isChecked()
+                if use_temp_resolution_checkbox_value == "0" or use_temp_resolution_checkbox_value == 0:
                         use_temp_resolution_bool = False
                 else:
                         use_temp_resolution_bool = True
@@ -254,6 +315,6 @@ class MegascansFixerDialog(HDialog):
 
                 # using displacement resolution as resolution for all maps you ask it to bake! I need to a discussion with Muggy on how it should be dealt with
                 
-                self.megascans_asset_object.execute_fix(polyreduce_percentage_float, maps_to_bake_dict, map_resolution_str, use_temp_resolution_bool)
+                self.megascans_asset_object.execute_custom_lod_and_baking(polyreduce_percentage_float, maps_to_bake_dict, map_resolution_str, make_reader_nodes_bool, use_temp_resolution_bool)
 
                 
