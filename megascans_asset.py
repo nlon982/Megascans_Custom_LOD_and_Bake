@@ -5,11 +5,11 @@ from renderer_material import RedshiftMaterial
 from helper_functions import *
 from big_framework import *
 
-import ui_attempt
+import megascans_custom_lod_and_bake_ui
 import lod_and_bake
 
 # so houdini doesn't use the precompiled:
-reload(ui_attempt)
+reload(megascans_custom_lod_and_bake_ui)
 reload(lod_and_bake)
 
 
@@ -20,9 +20,10 @@ class MegascansAsset:
     """
 
     @staticmethod
-    def display_message(message_string, kwargs):
+    def display_message(message_string, **kwargs):
         # same functionality as hou.ui.displayMessage, just ensures title
-        hou.ui.displayMessage(message_string, title = "Megascans Custom LOD & Baking Tool", **kwargs)
+        return hou.ui.displayMessage(message_string, title = "Megascans Custom LOD & Baking Tool", **kwargs)
+        # ^ returning because hou.ui.displayMessage returns
 
     @staticmethod
     def get_asset_geometry_nodes(megascans_asset_subnet_node):
@@ -31,7 +32,7 @@ class MegascansAsset:
         asset_geometry_node = hou.node(asset_geometry_path)
 
         if asset_geometry_node is None:
-            raise Exception("'Asset_Geometry' isn't a child of {}.".format(megascans_asset_subnet_path))
+            raise Exception("'Asset_Geometry' isn't a child of {}.\nAre you sure you've selected a Megascans Asset Subnetwork?".format(megascans_asset_subnet_path))
 
         file_node_path = "{}/Asset_Geometry/file1".format(megascans_asset_subnet_path)
         transform_node_path = "{}/Asset_Geometry/transform1".format(megascans_asset_subnet_path)
@@ -48,9 +49,13 @@ class MegascansAsset:
         asset_material_node = hou.node(asset_material_path)
 
         if asset_material_node is None:
-            raise Exception("'Asset_Material' isn't a child of {}.".format(megascans_asset_subnet_path))
+            raise Exception("'Asset_Material' isn't a child of {}.\nAre you sure you've selected a Megascans Asset Subnetwork?".format(megascans_asset_subnet_path))
 
-        asset_material_node_child = asset_material_node.children()[0] # assuming only one child
+        # todo: could get it to look at all children for one with an appropriate type (if multiple of appropriate type, choose the first one)
+        try:
+            asset_material_node_child = asset_material_node.children()[0] # assuming only one child
+        except:
+            raise Exception("'Asset_Material' does not have a child.")
         renderer_material_builder_type = asset_material_node_child.type().name()
 
         if renderer_material_builder_type  == "redshift_vopnet":
@@ -66,7 +71,7 @@ class MegascansAsset:
             asset_geometry_node, transform_node, file_node = MegascansAsset.get_asset_geometry_nodes(megascans_asset_subnet_node)
             asset_material_object = MegascansAsset.get_asset_material_object(megascans_asset_subnet_node)
         except Exception as exception:
-            raise Exception("{}\nAre you sure you've selected a Megascans Asset Subnetwork?".format(exception))
+            raise Exception("{}".format(exception)) # Feel free to add anything else (otherwise this try / except isn't doing anything)
         return asset_geometry_node, transform_node, file_node, asset_material_object
 
     def get_map_name_and_node_setup_dict(self, template_map_name_and_node_setup_dict):
@@ -213,8 +218,12 @@ class MegascansAsset:
         """
         # Ask if they want to swap over to chosenres maps
         nice_string_of_map_name_and_reader_node_dict = self.get_nice_string_of_map_name_and_reader_node_dict()
-        message_string = "Your {} resolution maps have finished baking. Currently your reader nodes are set to use the paths of the 1K maps, would you like your reader nodes to swap over to your chosen resolution maps now?\n\nIf you want to do this manually, note the map name and the correspond reader nodes / reader parameters are:\n{}".format(
-            self.chosen_bake_resolution_str, nice_string_of_map_name_and_reader_node_dict)
+        do_it_yourself_message_string = "\n\nIf you want to do this manually, note the map name and the correspond reader nodes / reader parameters are:\n{}".format(nice_string_of_map_name_and_reader_node_dict)
+        # ^ currently not used
+
+        message_string = "Your {} resolution maps have finished baking. Currently your reader nodes are set to use the paths of the 1K maps, would you like your reader nodes to swap over to your chosen resolution maps now?".format(self.chosen_bake_resolution_str)
+
+
 
         user_choice = MegascansAsset.display_message(message_string, buttons = ('Yes', 'No'), default_choice = 0)  # 0 is Yes, 1 is No
 
@@ -232,15 +241,18 @@ class MegascansAsset:
 
         Notifies user that their maps have finished baking.
         """
-        MegascansAsset.display_message("Your {} resolution maps have finished baking! Note, your reader nodes are already set to the paths of these".format(self.chosen_bake_resolution_str))
+        if self.make_reader_nodes_bool == True:
+            MegascansAsset.display_message("Your {} resolution maps have finished baking! Note, your reader nodes are already set to the paths of these".format(self.chosen_bake_resolution_str))
+        else:
+            MegascansAsset.display_message("Your {} resolution maps have finished baking!".format(self.chosen_bake_resolution_str))
 
         handler.removeFromAllEmitters()  # ^ ditto
 
         self.all_done_message()
 
 
-    def helper_function(self, bake_resolution_str):
-        export_name_prefix = "{}_{}_LOD{}_".format(self.megascans_asset_name, bake_resolution_str, self.polyreduce_percentage_float)
+    def get_bake_info(self, bake_resolution_int):
+        export_name_prefix = "{}_{}_LOD{}_".format(self.megascans_asset_name, get_resolution_str(bake_resolution_int), self.polyreduce_percentage_float)
         export_path = lod_and_bake.Bake.get_export_path(self.megascans_asset_folder_path, export_name_prefix)
         map_name_and_export_paths_dict = lod_and_bake.Bake.get_map_name_and_export_paths_dict(self.maps_to_bake_dict, self.megascans_asset_folder_path, export_name_prefix)
 
@@ -265,7 +277,7 @@ class MegascansAsset:
     def bake_custom_maps_and_update_reader_nodes_accordingly(self):
         # Get information about chosenres
         chosenres_bake_resolution_x_and_y = get_resolution_int(self.chosen_bake_resolution_str)
-        chosenres_export_name_prefix, chosenres_export_path, self.chosenres_map_name_and_export_paths_dict = self.helper_function(chosenres_bake_resolution_x_and_y)
+        chosenres_export_name_prefix, chosenres_export_path, self.chosenres_map_name_and_export_paths_dict = self.get_bake_info(chosenres_bake_resolution_x_and_y)
 
         # Create a GENERAL Bake object to use in the PDG later i.e. hack it so that resolution_x and resolution_y are "@bake_resolution_x_and_y" and so export_path is "@export_path"
         general_baketexture_node,  general_camera_node = self.make_general_bake_object()
@@ -280,10 +292,10 @@ class MegascansAsset:
 
         pdg_graph_context = ropfetch_node.getPDGGraphContext()  # could call this method on the topnet or wedge and it'd give the same context
 
-        if self.use_temp_resolution_bool == True:
+        if self.use_temp_resolution_bool == True: # means you must have reader nodes
             # Get information about lowres
             lowres_bake_resolution_x_and_y = 1024  # change to what you like
-            lowres_export_name_prefix, lowres_export_path, lowres_map_name_and_export_paths_dict = self.helper_function(lowres_bake_resolution_x_and_y)
+            lowres_export_name_prefix, lowres_export_path, lowres_map_name_and_export_paths_dict = self.get_bake_info(lowres_bake_resolution_x_and_y)
 
             # Modify megascans reader nodes to lowres
             self.update_megascans_material_reader_nodes_export_paths(lowres_map_name_and_export_paths_dict)
@@ -300,7 +312,8 @@ class MegascansAsset:
                                               True)  # the True means that a handler will be passed to the event handler, as well as the event
         else:
             # Modify megascans reader nodes to chosenres
-            self.update_megascans_material_reader_nodes_export_paths(self.chosenres_map_name_and_export_paths_dict)  # doing before
+            if self.make_reader_nodes_bool == True:
+                self.update_megascans_material_reader_nodes_export_paths(self.chosenres_map_name_and_export_paths_dict)  # doing before
 
             # Configure pdg
             string_processor(topnet_node,
@@ -313,16 +326,18 @@ class MegascansAsset:
 
         # Save and Cook PDG
         hou.hipFile.save()  # executeGraph uses the last saved hipfile version
-        ropfetch_node.executeGraph(False, False, False,
-                                   False)  # note that pdg/topnets render by behind-the-scenes opening the latest save of houdini with the corresponding work item's attributes and rendering there
+        ropfetch_node.executeGraph(False, False, False, False)  # note that pdg/topnets render by behind-the-scenes opening the latest save of houdini with the corresponding work item's attributes and rendering there
 
 
         # notify user (neilson's heuristics)
         if self.use_temp_resolution_bool == True:
-            MegascansAsset.display_message("Baking out temporary 1K resolution maps, and your chosen {chosen_bake_resolution_str} resolution maps now.\n\nYour reader nodes have been created, they are set to use the paths of the 1K maps. Once {chosen_bake_resolution_str} resolution maps have finished baking, you'll be asked if you want to swap over your reader nodes to these.".format(chosen_bake_resolution_str = self.chosen_bake_resolution_str))
+            MegascansAsset.display_message("Baking out temporary 1K resolution maps, and your chosen {chosen_bake_resolution_str} resolution maps now.\n\nYour reader nodes have been created and they are set to use the paths of the 1K maps. Once your {chosen_bake_resolution_str} resolution maps have finished baking, you'll be asked if you want to swap over your reader nodes to these.".format(chosen_bake_resolution_str = self.chosen_bake_resolution_str))
             # ^ assuming 1K will bake out first, otherwise the wording needs to change
         else:
-            MegascansAsset.display_message("Baking out {} resolution maps now, you will be notified when they're done.\n\nYour reader nodes have been created. they are using the paths of these maps (even though they're not baked yet).".format(self.chosen_bake_resolution_str))
+            if self.make_reader_nodes_bool == True:
+                MegascansAsset.display_message("Baking out {} resolution maps now, you will be notified when they're done.\n\nYour reader nodes have been created, and they are using the paths of these maps (even though they're not baked yet).".format(self.chosen_bake_resolution_str))
+            else:
+                MegascansAsset.display_message("Baking out {} resolution maps now, you will be notified when they're done.".format(self.chosen_bake_resolution_str))
 
 
     def put_all_nodes_created_in_a_network_box(self):
@@ -347,15 +362,19 @@ class MegascansAsset:
         self.organise_megascans_asset_subnet_and_hide_fix_subnet()  # layout all the necessary things
 
 
-    def execute_custom_lod_and_baking(self, polyreduce_percentage_float, maps_to_bake_dict, chosen_bake_resolution_str, use_temp_resolution_bool):
+    def execute_custom_lod_and_baking(self, polyreduce_percentage_float, maps_to_bake_dict, chosen_bake_resolution_str, make_reader_nodes_bool, use_temp_resolution_bool):
         self.fix_subnet_node = self.megascans_asset_subnet_node.createNode("subnet", "Megascans_Custom_LOD_and_Baking_Subnet")  # Feel free to change name
 
         self.polyreduce_percentage_float = polyreduce_percentage_float
         self.maps_to_bake_dict = maps_to_bake_dict
         self.chosen_bake_resolution_str = chosen_bake_resolution_str
+        self.make_reader_nodes_bool = make_reader_nodes_bool
         self.use_temp_resolution_bool = use_temp_resolution_bool
+
         if chosen_bake_resolution_str == "1K":  # simplifies things, and the "1K" is hardcoded everywhere (gross)
             use_temp_resolution_bool = False
+        if self.make_reader_nodes_bool == False: # the UI enforces this, this is just fool proofing
+            self.use_temp_resolution_bool = False
 
         template_map_name_and_node_setup_dict = self.asset_material_object.get_template_map_name_and_node_setup_dict() # returns a copy
         self.map_name_and_node_setup_dict = self.get_map_name_and_node_setup_dict(template_map_name_and_node_setup_dict)
@@ -371,12 +390,31 @@ class MegascansAsset:
         if len(self.map_name_and_node_setup_dict.keys()) == 0:
             self.organise_megascans_asset_subnet_and_hide_fix_subnet()
             self.all_done_message()
-            raise SystemExit  # they didn't ask for any maps to be baked
+            return  # they didn't ask for any maps to be baked
 
-        self.add_node_setup_to_material_node()
+        if self.make_reader_nodes_bool == True: # elegant -- however, should probably not go to the effort of making map_name_and_node_setup_dict and map_name_and_reader_node_dict
+            self.add_node_setup_to_material_node()
 
         # Step c
         self.bake_custom_maps_and_update_reader_nodes_accordingly()
 
+        if self.make_reader_nodes_bool == True:
+            self.put_all_nodes_created_in_a_network_box()
 
-        self.put_all_nodes_created_in_a_network_box()
+def main():
+    selected_node_list = hou.selectedNodes()
+    if len(selected_node_list) != 1:
+        raise MegascansAsset.display_message("Zero or Multiple nodes selected. Are you sure you've selected a single Megascans Asset Subnetwork?")
+
+    megascans_asset_subnet = selected_node_list[0] # assuming that it's a megascans asset (checking below)
+
+    try:
+        megascans_asset_object = MegascansAsset(megascans_asset_subnet)
+    except Exception as exception:
+        MegascansAsset.display_message("Error Occured:\n\n{}\n\nPlease try again".format(exception))
+        raise SystemExit
+
+    megascans_asset_subnet.setDisplayFlag(True)  # baking requires its display flag is visible
+
+    ui = megascans_custom_lod_and_bake_ui.MegascansFixerDialog(megascans_asset_object)
+    ui.show() # passing control off to the UI

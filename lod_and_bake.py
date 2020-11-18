@@ -3,8 +3,7 @@ import hou
 
 from big_framework import string_processor
 
-from megascans_fixer import * # importantly, includes os_path_join_fix
-
+from helper_functions import os_path_join_for_houdini
 
 def check_node_exists(a_node_path): # I was thinking of doing something like this. Currently I haven't used this - still deciding
     a_node = hou.node(a_node_path)
@@ -29,7 +28,7 @@ class Bake:
     # helper functions to __init__ (they are also useful to have)
     @staticmethod
     def get_export_path(export_directory, export_name_prefix):
-        return os_path_join_fix(export_directory, "{}custom_baking_%(CHANNEL)s.rat".format(export_name_prefix)) # this is what the bake_texture node uses. Hardcoded along with export paths dict below
+        return os_path_join_for_houdini(export_directory, "{}custom_baking_%(CHANNEL)s.rat".format(export_name_prefix)) # this is what the bake_texture node uses. Hardcoded along with export paths dict below
 
     @staticmethod
     def get_map_name_and_export_paths_dict(maps_to_bake_dict, export_directory, export_name_prefix):
@@ -40,7 +39,7 @@ class Bake:
                 parameter_name = Bake.map_name_and_houdini_parameter_name_dict[map_name]
                 export_name = "{}custom_baking_{}.exr".format(export_name_prefix, parameter_name.split("_")[-1]) # hardcoded to match self.export_path
                 #^  parameter_name.split("_")[-1], e.g. if the parameter name is 'vm_quickplane_Ds', the render token, %(CHANNEL)s, is 'Ds'
-                map_name_and_export_paths_dict[map_name] = os_path_join_fix(export_directory, export_name)
+                map_name_and_export_paths_dict[map_name] = os_path_join_for_houdini(export_directory, export_name)
 
         return map_name_and_export_paths_dict
 

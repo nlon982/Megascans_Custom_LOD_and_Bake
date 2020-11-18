@@ -158,6 +158,40 @@ def setup(a_node, entry_1, entry_2, entry_3, entry_4):
 
     input_node.setInput(input_connector_int, output_node, output_connector_int)
 
+
+# good functions to have (not used in above)
+def get_entry_param_name_from_content(entry, param_content):
+    """
+    e.g. given 'cTextureSampler-bob!hi:hello' (or even just '!hi:hello') and 'hello', give 'hi'
+    """
+    param_cropped_right = entry[:entry.find(param_content) - 1]
+    param_name = param_cropped_right[param_cropped_right.rfind("!") + 1:]
+    return param_name
+
+
+def get_entry_name(entry): # some repeated code to above, but useful to have seperate
+    """
+    Given an entry give the name of the node
+
+    e.g. "@bob!boo:blah" returns "bob"
+    e.g. "cTextureSampler-John" returns "John"
+    e.g. "cTextureSampler" returns None
+    """
+    if entry[0] == "@":  # get rid of one off thing
+        entry = entry[1:]
+
+    entry_without_params, params = parameter_temp_processor(entry)
+
+    if entry[0] == "c":
+        entry_type, entry_name = get_name_and_type(entry_without_params[1:]) # entry_name will be None if it doesn't have a name
+    elif entry[0] == "e":
+        entry_name = entry_without_params[1:]
+    else:
+        raise Exception("BAD INPUT entry: {}, no 'c' or 'e' at start.".format(entry_without_params))
+
+    return entry_name
+
+
 #a_node = hou.node("/mat")
 #a_string = "cTextureSampler-craig i0 cTextureSampler-john i0 cTextureSampler-dylan i0 cTextureSampler-bob i0 ecraig i0 edylan i0"
     
