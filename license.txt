@@ -1,0 +1,45 @@
+﻿◤━━━━━━━━━━━━━━━━━━━━◥
+  BREAK YOUR CRAYONS
+◣━━━━━━━━━━━━━━━━━━━━◢
+www.byccollective.com
+
+Megascans Custom LOD & Baking Tool
+
+Description: 
+This tool allows you to create a custom LOD and bake out maps for Quixel Megascans assets.
+Using a Megascan Asset subnetwork imported from Quixel Bridge, you can generate a better looking LOD + bake out some additional texture maps.
+
+Copyright notice:
+These files are copyrighted under the Creative Commons BY (Attribution) license.
+
+More details can be found here:
+https://creativecommons.org/licenses/by/3.0/legalcode.txt
+
+In short, it is free to use for both commercial and non-comercial projects as long as you give credit.
+Where applicabale, please give credit & attribution to the following people/entities:
+
+━━━━━━━━━━━━━━━━━━━━━▲━━━━━━━━━━━━━━━━━━━━━━━
+Credits:
+> Nathan Longhurst | 3D Artist | HolesinShoes
+> The Break Your Crayons Collective 
+
+Attribution (Houdini UI Library for Python):
+> alexxbb | github.com/alexxbb 
+━━━━━━━━━━━━━━━━━━━━━▼━━━━━━━━━━━━━━━━━━━━━━━
+
+Thank you and enjoy the tool!
+
+----------------------------------------­-----
+
+Follow BREAK YOUR CRAYONS on:
+? Instagram : https://www.instagram.com/byccollective
+? Facebook : https://www.facebook.com/byccollective
+? Twitter : https://twitter.com/byccollective 
+
+BREAK YOUR CRAYONS Youtube Channel:
+https://youtube.com/c/BreakYourCrayons
+
+Follow HolesinShoes on:
+? Instagram : https://www.instagram.com/holesinshoes3d/
+
+----------------------------------------­-----
