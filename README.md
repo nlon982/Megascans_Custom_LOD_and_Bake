@@ -3,7 +3,7 @@ This tool allows you to generate new LODs and bake out additional maps when work
 
 ### To use, simply click on a Megascans Asset Subnet (which has been imported in to Houdini via Quixel Bridge), and click on the shelf tool made below.
 
-See https://www.byccollective.com/blog-posts/houdini-megascans-custom-lod-and-baking-tool for a video tutorial. Particularly, see 5:50 for the tool being used. The entire video is great for an explanation of what's happening.
+See https://www.byccollective.com/blog-posts/houdini-megascans-custom-lod-and-baking-tool for a video tutorial of its use and installation. Particularly, see 5:50 for the tool being used. The entire video is great for an explanation of what's happening.
 
 ## Installation:
 
