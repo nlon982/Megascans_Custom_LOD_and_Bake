@@ -14,13 +14,13 @@ When Houdini is launched, it takes note of the variables in its houdini.env . Wh
 
 #### STEP 2) Add the following code to a new shelf tool:
 
-'''
+```
 import hdefereval
 
 import megascans_asset
 reload(megascans_asset) # optional (in the case you make a change to the code, houdini doesn't use the pre-compiled version of the script it has)
 
 hdefereval.executeDeferred(megascans_asset.main) # hdefereval is something fancy, it runs the function/method passed to it in the main thread (this is necessary because this shelf tool has UI which won't quit out properly unless this tool is run on the main thread)
-'''
+```
 
 
