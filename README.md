@@ -1,5 +1,5 @@
 # Megascans_Custom_LOD_and_Bake
-This tool allows you to generate new LODs and bake out additional maps when working with a Quixel Megascans Asset, imported from Quixel Bridge / Livelink, in Houdini.  This contains a framework I created to easily create and change parameters of nodes (it's a language which encodes information to create nodes and change parameters of nodes, in a string -- which is extremely useful), called Big Framework (a simpler version is here: https://github.com/nlon982/BigFramework). This also includes helper tools called LOD, and Bake, which abstract creating an LOD and baking textures.
+This tool allows you to generate new LODs and bake out additional maps when working with a Quixel Megascans Asset, imported from Quixel Bridge / Livelink, in Houdini.  This contains a framework I created to easily create and change parameters of nodes (it's a language which encodes information to create nodes and change parameters of nodes, in a string - which you can then apply to any node), called Big Framework (a simpler version is here: https://github.com/nlon982/BigFramework). This also includes helper tools called LOD, and Bake, which abstract creating an LOD and baking textures.
 
 ### To use, simply click on a Megascans Asset Subnet (which has been imported in to Houdini via Quixel Bridge), and click on the shelf tool made below.
 
