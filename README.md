@@ -3,14 +3,14 @@ This tool allows you to generate new LODs and bake out additional maps when work
 
 ## Installation:
 
-###### STEP 1) Add to your houdini.env file (usually found in C:/Users/Nathan Longhurst/Documents/Houdini18.0/houdini.env):
+##### STEP 1) Add to your houdini.env file (usually found in C:/Users/Nathan Longhurst/Documents/Houdini18.0/houdini.env):
 
 PYTHONPATH = "path to folder containing these .py files"
 
 When Houdini is launched, it takes note of the variables in its houdini.env . When a shelftool tries to import a python module, it'll look at all of the places it knows to look for Python code, PYTHONPATH is one of these.
 
 
-###### STEP 2) Add the following code to a new shelf tool:
+##### STEP 2) Add the following code to a new shelf tool:
 
 "
 import hdefereval
