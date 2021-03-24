@@ -21,6 +21,7 @@ Where applicable, please give credit & attribution to the following people/entit
 ━━━━━━━━━━━━━━━━━━━━━▲━━━━━━━━━━━━━━━━━━━━━━━
 Credits:
 > Nathan Longhurst | 3D Artist | HolesinShoes
+
 > The Break Your Crayons Collective 
 
 Attribution (Houdini UI Library for Python):
