@@ -5,6 +5,8 @@ from big_framework import string_processor
 
 from helper_functions import os_path_join_for_houdini
 
+
+
 def check_node_exists(a_node_path): # I was thinking of doing something like this. Currently I haven't used this - still deciding
     a_node = hou.node(a_node_path)
     if a_node == None:

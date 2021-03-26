@@ -8,9 +8,25 @@ from big_framework import *
 import megascans_custom_lod_and_bake_ui
 import lod_and_bake
 
-# so houdini doesn't use the precompiled:
+
+#-------------- so houdini doesn't use the precompiled:
+# in a perfect world, a recursive reload will happen in the shelf tool (the reload function only reloads the current module, not any imports that module has).
+# Alternatively, I can reload stuff in the shelf tool and reload stuff here (and anywhere else I have to reload) - just annoying is all.
+# As for what reload function, I can use for different versions of Python: https://stackoverflow.com/a/33409066
+
+# note giving a name/variable is cool, it'll just go in to cyberspace. An error will be thrown if name doesn't exist ("a variable but for a function, etc." - I think that's the use of "name" instead of saying "variable")
+# could write a function that accomplishes this (pass it what you'd like it to import a function, and it'll try all of them; and stop once it's successful)
+try:
+    reload # Python 2.7 has this
+except:
+    try:
+        from importlib import reload # Python 3.4+ has this
+    except:
+        from imp import reload # Python 3.0 - 3.3 has this. It's deprecated in Python 3.4+, so although it probably can be used, preferred to use the above if available (hence why this is last)
+
 reload(megascans_custom_lod_and_bake_ui)
 reload(lod_and_bake)
+#--------------
 
 
 class MegascansAsset:
@@ -32,7 +48,7 @@ class MegascansAsset:
         asset_geometry_node = hou.node(asset_geometry_path)
 
         if asset_geometry_node is None:
-            raise Exception("'Asset_Geometry' isn't a child of {}.\nAre you sure you've selected a Megascans Asset Subnetwork?".format(megascans_asset_subnet_path))
+            raise Exception("'Asset_Geometry' isn't a child of '{}'.\nAre you sure you've selected a Megascans Asset Subnetwork?".format(megascans_asset_subnet_path))
 
         file_node_path = "{}/Asset_Geometry/file1".format(megascans_asset_subnet_path)
         transform_node_path = "{}/Asset_Geometry/transform1".format(megascans_asset_subnet_path)
@@ -49,7 +65,7 @@ class MegascansAsset:
         asset_material_node = hou.node(asset_material_path)
 
         if asset_material_node is None:
-            raise Exception("'Asset_Material' isn't a child of {}.\nAre you sure you've selected a Megascans Asset Subnetwork?".format(megascans_asset_subnet_path))
+            raise Exception("'Asset_Material' isn't a child of '{}'.\nAre you sure you've selected a Megascans Asset Subnetwork?".format(megascans_asset_subnet_path))
 
         # todo: could get it to look at all children for one with an appropriate type (if multiple of appropriate type, choose the first one)
         try:
@@ -78,10 +94,17 @@ class MegascansAsset:
         """
         Modify map_name_and_node_setup_dict to only have the maps we're baking
         """
+
+        maps_not_to_bake_list = list() # these will be popped from template_map_name_and_node_setup_dict (cannot pop from a dict you're iterating in, thanks to Python3)
         for map_name in template_map_name_and_node_setup_dict.keys():
             bake_bool = self.maps_to_bake_dict[map_name]
             if bake_bool == False:
-                template_map_name_and_node_setup_dict.pop(map_name)  # pops keys
+                maps_not_to_bake_list.append(map_name) # pops keys
+
+        for map_name in maps_not_to_bake_list:
+            template_map_name_and_node_setup_dict.pop(map_name)
+
+        print(template_map_name_and_node_setup_dict)
 
         return template_map_name_and_node_setup_dict
 
@@ -155,7 +178,7 @@ class MegascansAsset:
             MegascansAsset.display_message("Baking out {} percent LOD now (this should freeze Houdini).\n\nOnce this has finished baking your asset's geometry will be set to use this LOD too.".format(self.polyreduce_percentage_float))
             a_lod_object.execute_in_houdini()
         else:
-            MegascansAsset.display_message("A LOD that's {} percent already exists at:\n {}\n\nUsing that instead of re-baking\n\nYour asset's geometry will be set to use this LOD too.".format(self.polyreduce_percentage_float, customlod_path))
+            MegascansAsset.display_message("A LOD that's {} percent already exists at:\n '{}'\n\nUsing that instead of re-baking\n\nYour asset's geometry will be set to use this LOD too.".format(self.polyreduce_percentage_float, customlod_path))
 
         self.file_node.parm("file").set(customlod_path)  # could go inside if block. Having it here is a bit of fool proofing
 
@@ -165,10 +188,11 @@ class MegascansAsset:
         # to render, the below to be True but since rendering uses an (previously saved) hipfile with this True, it's fine to do here
         self.fix_subnet_node.setDisplayFlag(False)
 
-        set_network_editor_to_view_node(self.megascans_asset_subnet_node)
+        # set_network_editor_to_view_node(self.megascans_asset_subnet_node) # actually nice to have this commented out; having the user see the topnet is a nice way to show them stuff is rendering
 
-        # Layout material builder node
-        self.asset_material_object.get_material_builder_node().layoutChildren()
+        # Layout material builder node (maybe this should be somewhere else)
+        if self.asset_material_object is not None:
+            self.asset_material_object.get_material_builder_node().layoutChildren()
 
         # Layout the fix subnet
         self.fix_subnet_node.layoutChildren()
@@ -359,10 +383,15 @@ class MegascansAsset:
         a_vector = hou.Vector2(2, 0)  # hard coded (the size needed to fit the comment above)
         network_box.resize(a_vector)
 
-        self.organise_megascans_asset_subnet_and_hide_fix_subnet()  # layout all the necessary things
-
 
     def execute_custom_lod_and_baking(self, polyreduce_percentage_float, maps_to_bake_dict, chosen_bake_resolution_str, make_reader_nodes_bool, use_temp_resolution_bool):
+        """
+        Plan: what each method is using, and what is being stored as an attribute needs a good look at
+        - I think it's a good idea to have all of the arguments of this method stored in attributes, which any of the called methods can access
+        - There's decision to be made, e.g. should bake_custom_maps_and_update_reader_bodes_accordingly be in charge of calling add_node_setup_to_material_node (moreover, should it make map_name_and_node_setup_dict)
+
+        """
+
         self.fix_subnet_node = self.megascans_asset_subnet_node.createNode("subnet", "Megascans_Custom_LOD_and_Baking_Subnet")  # Feel free to change name
 
         self.polyreduce_percentage_float = polyreduce_percentage_float
@@ -376,30 +405,44 @@ class MegascansAsset:
         if self.make_reader_nodes_bool == False: # the UI enforces this, this is just fool proofing
             self.use_temp_resolution_bool = False
 
-        template_map_name_and_node_setup_dict = self.asset_material_object.get_template_map_name_and_node_setup_dict() # returns a copy
-        self.map_name_and_node_setup_dict = self.get_map_name_and_node_setup_dict(template_map_name_and_node_setup_dict)
-        self.map_name_and_reader_node_dict = self.get_map_name_and_reader_node_dict("{export_path}")  # reader nodes are nodes which have "{export_path}"
-
         # Step a
         self.customlod_path = self.make_custom_lod()
 
         # Step bi
-        self.asset_material_object.configure_megascans_subnet(self)
+        if self.asset_material_object is not None: # currently, it's okay for this to be None
+            self.asset_material_object.configure_megascans_subnet(self)
 
-        # Step bii
-        if len(self.map_name_and_node_setup_dict.keys()) == 0:
+        # Step biii
+        # gross, repeated code in get_map_name_and_node_setup_dict - maybe get_map_name_and_node_setup_dict could be passed a list of maps to bake, and hence part of the work could be done here (and that'll stop repeated code)
+        zero_maps_to_bake_bool = True
+        for key in maps_to_bake_dict:
+            bake_bool = maps_to_bake_dict[key]
+            if bake_bool == True:
+                zero_maps_to_bake_bool = False
+                break
+
+        if zero_maps_to_bake_bool == True:  # the user didn't ask for any maps to be baked
+            print("no maps to bake!")
             self.organise_megascans_asset_subnet_and_hide_fix_subnet()
             self.all_done_message()
-            return  # they didn't ask for any maps to be baked
-
-        if self.make_reader_nodes_bool == True: # elegant -- however, should probably not go to the effort of making map_name_and_node_setup_dict and map_name_and_reader_node_dict
-            self.add_node_setup_to_material_node()
+            return
 
         # Step c
-        self.bake_custom_maps_and_update_reader_nodes_accordingly()
+        if self.asset_material_object is not None and self.make_reader_nodes_bool == True:
+            template_map_name_and_node_setup_dict = self.asset_material_object.get_template_map_name_and_node_setup_dict()  # returns a copy
+            self.map_name_and_node_setup_dict = self.get_map_name_and_node_setup_dict(template_map_name_and_node_setup_dict)
 
+            self.add_node_setup_to_material_node()  # uses get_map_name_and_node_setup_dict
+            self.map_name_and_reader_node_dict = self.get_map_name_and_reader_node_dict("{export_path}")  # reader nodes are nodes which have "{export_path}"
+
+        self.bake_custom_maps_and_update_reader_nodes_accordingly() # 5 sec observation: this assumes node setup has been created in material node, and map_name_and_reader_node_dict exists (which this method uses, or the event handler use to touch reader nodes)
+        #self.organise_megascans_asset_subnet_and_hide_fix_subnet()  # layout all the necessary things
+
+        # extra
         if self.make_reader_nodes_bool == True:
-            self.put_all_nodes_created_in_a_network_box()
+            self.put_all_nodes_created_in_a_network_box() # random last minute thing (could be added to the appropriate event handler instead, I think?)
+
+
 
 def main():
     selected_node_list = hou.selectedNodes()

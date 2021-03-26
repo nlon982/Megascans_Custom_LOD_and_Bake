@@ -1,8 +1,21 @@
-from huilib import *
+import huilib
 import lod_and_bake
 import re
 
 import hdefereval
+
+#-------------- so houdini doesn't use the precompiled (copy and pasted code: gross!)
+try:
+    reload # Python 2.7 has this
+except:
+    try:
+        from importlib import reload # Python 3.4+ has this
+    except:
+        from imp import reload # Python 3.0 - 3.3 has this. It's deprecated in Python 3.4+, so although it probably can be used, preferred to use the above if available (hence why this is last)
+
+reload(huilib)
+#--------------
+from huilib import *
 
 def get_valid_name(name): # works for Houdini name and Houdini ui name
     return re.sub("[^0-9a-zA-Z\.]+", "_", name).lower() # the lower is something nice but extra
