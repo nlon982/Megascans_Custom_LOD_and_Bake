@@ -13,7 +13,7 @@ See https://www.byccollective.com/blog-posts/houdini-megascans-custom-lod-and-ba
 
 ## Installation:
 
-#### STEP 1) Add the following to your houdini.env file (usually found somewhere like C:/Users/Nathan Longhurst/Documents/Houdini18.0/houdini.env, note: make sure you're in the correct Houdini directory e.g. if you're using Houdini 17.5, then use look for a folder called 'Houdini17.5'):
+#### STEP 1) Add the following to your houdini.env file (usually found somewhere like C:/Users/Nathan Longhurst/Documents/Houdini18.0/houdini.env, note: make sure you're in the correct Houdini directory e.g. if you're using Houdini 17.5, then look for a folder called 'Houdini17.5'):
 
 ```
 PYTHONPATH = "path to folder containing the .py files downloaded from this GitHub"
