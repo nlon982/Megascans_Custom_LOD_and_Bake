@@ -19,8 +19,8 @@ See https://www.byccollective.com/blog-posts/houdini-megascans-custom-lod-and-ba
 PYTHONPATH = "path to folder containing the .py files downloaded from this GitHub"
 ```
 
-###### What's happening here? 
-When Houdini is launched, it takes note of the variables in its houdini.env . When a shelftool tries to import a python module (like what the shelf tool below does), it'll look at all of the places it knows to look for Python code - and the value corresponding with the variable 'PYTHONPATH' (found in its houdini.env) is one of these places it'll look.
+###### Why do I have to do this? 
+The shelftool below tries to import the Python files ("modules") you just downloaded. Houdini has a list of places that it can look for Python files, and it's just a matter of adding the folder that contains *these* Python files to that list. Fun fact: when Houdini is launched, it looks at the variables in its houdini.env, and the value corresponding with the variable 'PYTHONPATH' is one of these places Houdini will look for Python code.
 
 All the code could be made to work in a single script (and therefore all of it would only need to be placed in the shelf tool, and this would be a one step installation process). From a development point of view, it's much easier to not have all the code contained in the shelftool - so I haven't done this - however, maybe this is a 'special release' that should be made so that installation is one step.
 
