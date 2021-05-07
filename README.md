@@ -5,7 +5,7 @@ This tool allows you to generate new LODs and bake out additional maps when work
 
 This contains a framework I created to easily create and change parameters of nodes (it's a language which encodes information to create nodes and change parameters of nodes, in a string - which can then be executed whenever you like), called Big Framework (a simpler version is here: https://github.com/nlon982/BigFramework). This also includes helper tools called LOD, and Bake, which abstract creating an LOD and baking textures.
 
-### 30/03/2021: I discovered a mistake in the code -  the tool works completely as expected when using Redshift Megascans Assets, but not Mantra Megascans Assets. I plan to fix this in the next week or so! What's the mistake? When you use this tool with a Mantra Megascans Asset, after it bakes out the Custom LOD, it'll attempt to do stuff to do with Redshift (which is a mistake) which will cause it to throw an error, i.e. if you're using a Mantra Megascans Asset it won't get to the step to bake out maps.
+### 30/03/2021: The tool works completely when using *Redshift* Megascans Assets. However, a mistake has been found re: *Mantra* Megascans Assets (the tool successfully bakes the Custom LOD, however after that, it attempts to do stuff with Redshift, which of course throws an error). Apologies for not getting around to fixing it, it should just be a change in several lines of code. Hopefully I'll do this some time in the near future!
 
 ### To use, simply click on a Megascans Asset Subnet (which has been imported in to Houdini via Quixel Bridge), and click on the shelf tool made by the installation process below.
 
