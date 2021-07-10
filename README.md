@@ -5,20 +5,22 @@ This tool allows you to generate new LODs and bake out additional maps when work
 
 This contains a framework I created to easily create and change parameters of nodes (it's a language which encodes information to create nodes and change parameters of nodes, in a string - which can then be executed whenever you like), called Big Framework (a simpler version is here: https://github.com/nlon982/BigFramework). This also includes helper tools called LOD, and Bake, which abstract creating an LOD and baking textures.
 
+### 30/03/2021: The tool works completely when using *Redshift* Megascans Assets. However, a mistake has been found re: *Mantra* Megascans Assets (the tool successfully bakes the Custom LOD, however after that, it attempts to do stuff with Redshift, which of course throws an error). Apologies for not getting around to fixing it, it should just be a change in several lines of code. Hopefully I'll do this some time in the near future!
+
 ### To use, simply click on a Megascans Asset Subnet (which has been imported in to Houdini via Quixel Bridge), and click on the shelf tool made by the installation process below.
 
 See https://www.byccollective.com/blog-posts/houdini-megascans-custom-lod-and-baking-tool for a video tutorial of its use and installation. Particularly, see 5:50 for the tool being used. The entire video is great for an explanation of what's happening.
 
 ## Installation:
 
-#### STEP 1) Add the following to your houdini.env file (usually found somewhere like C:/Users/Nathan Longhurst/Documents/Houdini18.0/houdini.env, note: make sure it's the houdini.env file that your current version of Houdini is using):
+#### STEP 1) Add the following to your houdini.env file (usually found somewhere like C:/Users/Nathan Longhurst/Documents/Houdini18.0/houdini.env, note: make sure you're in the correct Houdini directory e.g. if you're using Houdini 17.5, then look for a folder called 'Houdini17.5'):
 
 ```
 PYTHONPATH = "path to folder containing the .py files downloaded from this GitHub"
 ```
 
-###### What's happening here? 
-When Houdini is launched, it takes note of the variables in its houdini.env . When a shelftool tries to import a python module (like what the shelf tool below does), it'll look at all of the places it knows to look for Python code - and the value corresponding with the variable 'PYTHONPATH' (found in its houdini.env) is one of these places it'll look.
+###### Why do I have to do this? 
+The shelftool below tries to import the Python files ("modules") you just downloaded. Houdini has a list of places that it can look for Python files, and it's just a matter of making sure that one of the places Houdini looks for Python files is the folder containing *these* Python files. Fun fact: when Houdini is launched, it looks at the variables in its houdini.env, and the value corresponding with the variable 'PYTHONPATH' is one of these places Houdini will look for Python code.
 
 All the code could be made to work in a single script (and therefore all of it would only need to be placed in the shelf tool, and this would be a one step installation process). From a development point of view, it's much easier to not have all the code contained in the shelftool - so I haven't done this - however, maybe this is a 'special release' that should be made so that installation is one step.
 
