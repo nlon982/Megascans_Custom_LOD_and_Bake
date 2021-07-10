@@ -10,10 +10,13 @@ import lod_and_bake
 
 import functools
 
+import reload_helper
+
 # regarding reloading, so Houdini doesn't use the precompiled versions of these (in case there's a change to any of these)
-reload(megascans_custom_lod_and_bake_ui)
-reload(renderer_material)
-reload(lod_and_bake)
+# reload whatever you like:
+reload_helper.foolproof_reload(megascans_custom_lod_and_bake_ui)
+reload_helper.foolproof_reload(renderer_material)
+reload_helper.foolproof_reload(lod_and_bake)
 
 class MegascansAsset:
     """
@@ -31,7 +34,7 @@ class MegascansAsset:
     @staticmethod
     def all_done_message():
         MegascansAsset.display_custom_lod_and_baking_tool_message("All done! Seriously, this shelf tool has finished. Thanks for using me")
-        print("----------- execute_custom_lod_and_baking end -----------") # hmm
+        #print("----------- execute_custom_lod_and_baking end -----------") # hmm
 
     @staticmethod
     def count_of_maps_to_bake(maps_to_bake_dict):  # more useful than a "is_zero_maps_to_bake"
@@ -132,16 +135,16 @@ class MegascansAsset:
     def foolproof_reader_nodes_and_temp_resolution_bool(self, make_reader_nodes_bool, use_temp_resolution_bool):  # could make 'foolproof_execute_custom_lod_and_baking', but for now doing this only
         # for use_temp_resolution to be True, make_reader_nodes_bool must be True
         if make_reader_nodes_bool == False and use_temp_resolution_bool == True:
-            print("make_reader_nodes_bool == False, yet use_temp_resolution_bool == True, which is nonsensical. To be safe, setting use_temp_resolution_bool to False")
+            #print("make_reader_nodes_bool == False, yet use_temp_resolution_bool == True, which is nonsensical. To be safe, setting use_temp_resolution_bool to False")
             use_temp_resolution_bool = False
 
         # if make_reader_nodes_bool is True (note this means that it's possible for temp_resolution_bool to be True), then we must "know" (have a subclass of RendererMaterial, and make sure it's in action in get_asset_material_object) about its asset material (i.e. self.asset_material_object must not be None)
         if make_reader_nodes_bool == True and self.asset_material_object is None:  # lol PEP8
-            print("make_reader_nodes_bool, yet self.asset_material_object is None, which is not allowed (if you would like make_reader_nodes_bool to be True, then ensure that self.asset_material_object is not None). To be safe, setting both make_reader_nodes_bool and use_temp_resolution_bool to False")
+            #print("make_reader_nodes_bool, yet self.asset_material_object is None, which is not allowed (if you would like make_reader_nodes_bool to be True, then ensure that self.asset_material_object is not None). To be safe, setting both make_reader_nodes_bool and use_temp_resolution_bool to False")
             make_reader_nodes_bool = False
             use_temp_resolution_bool = False
 
-        print("")
+        #print("")
 
         return make_reader_nodes_bool, use_temp_resolution_bool
 
@@ -401,36 +404,36 @@ class MegascansAsset:
 
 
     def execute_custom_lod_and_baking(self, polyreduce_percentage_float, maps_to_bake_dict, chosen_bake_resolution_str, make_reader_nodes_bool, use_temp_resolution_bool):
-        print("----------- execute_custom_lod_and_baking start (note these logs aren't intended to be used by the user, instead they're here for debugging purposes if something goes wrong) -----------\n")
+        #print("----------- execute_custom_lod_and_baking start (note these logs aren't intended to be used by the user, instead they're here for debugging purposes if something goes wrong) -----------\n")
         #------ Foolproofing. Could throw an error but would rather fix mistake and continue. Note, the UI enforces this, but just in case this is called without the UI (or the UI is broken)
         make_reader_nodes_bool, use_temp_resolution_bool = self.foolproof_reader_nodes_and_temp_resolution_bool(make_reader_nodes_bool, use_temp_resolution_bool)
-        print("make_reader_nodes_bool: {}, and use_temp_resolution_bool: {}\n".format(make_reader_nodes_bool, use_temp_resolution_bool))
+        #print("make_reader_nodes_bool: {}, and use_temp_resolution_bool: {}\n".format(make_reader_nodes_bool, use_temp_resolution_bool))
 
 
         #------ Create subnet, which will be used to store everything made with this
         custom_lod_and_baking_subnet_node = self.megascans_asset_subnet_node.createNode("subnet", "Megascans_Custom_LOP_and_Baking_Subnet") # feel free to change node
-        print("Created subnet at path: {}\n".format(custom_lod_and_baking_subnet_node.path()))
+        #print("Created subnet at path: {}\n".format(custom_lod_and_baking_subnet_node.path()))
 
 
         #------ Step a (make Custom LOD)
         # Note, if a Custom LOD already exists with this percentage from a previous use of this tool, this is used instead of baking out a new one.
         customlod_path = self.make_custom_lod(custom_lod_and_baking_subnet_node, polyreduce_percentage_float)
-        print("Custom LOD with polyreduce_percentage_float: {}, is at path: {}. Either it was just baked out, or already exists (e.g. from a previous run of the tool)\n".format(polyreduce_percentage_float, customlod_path))
+        #print("Custom LOD with polyreduce_percentage_float: {}, is at path: {}. Either it was just baked out, or already exists (e.g. from a previous run of the tool)\n".format(polyreduce_percentage_float, customlod_path))
 
 
         #------ Step bi (configure Megascans Asset Subnet for anything Megascans missed, if possible)
         #Note, 'if possible' meaning that we have a RenderMaterial subclass of it (and an instance of this was returned during MegascansAsset's __init__) which represents the material used for this megascans asset,
         # Note, a RenderMaterial subclass has the method 'configure_megascans_asset_subnet' which has instructions on how to fix a Megascan Asset subnet's improper configurations, given a MegascansAsset object
         if self.asset_material_object is not None:
-            print("Note, this Megascans Asset Subnet uses the renderer '{}'. Editing subnet for known things that Megascan's livelink misses when creating the nodes for an asset, for this renderer".format(self.asset_material_object.get_renderer_name()))
+            #print("Note, this Megascans Asset Subnet uses the renderer '{}'. Editing subnet for known things that Megascan's livelink misses when creating the nodes for an asset, for this renderer".format(self.asset_material_object.get_renderer_name()))
             self.asset_material_object.configure_megascans_asset_subnet(self)
-            print("") # for the sake of a new line
+            #print("") # for the sake of a new line
 
 
 
         #------ Step bii (if no maps to bake, tell the user, give 'all done' message, and then return). Perhaps this should be incorporated into step c (moreover, bake_custom_maps_accordingly())
         count_of_maps_to_bake =  MegascansAsset.count_of_maps_to_bake(maps_to_bake_dict)
-        print("Note, the number of maps that have been selected to bake (with the aforementioned Custom LOD): {}\n".format(count_of_maps_to_bake))
+        #print("Note, the number of maps that have been selected to bake (with the aforementioned Custom LOD): {}\n".format(count_of_maps_to_bake))
 
         if count_of_maps_to_bake == 0:
             MegascansAsset.display_custom_lod_and_baking_tool_message("Note, zero maps have been selected to be baked")
@@ -440,7 +443,7 @@ class MegascansAsset:
 
 
         #------ Step c (bake custom maps, using aforementioned Custom LOD)
-        print("Baking custom maps (using the aforementioned Custom LOD)..\n")
+        #print("Baking custom maps (using the aforementioned Custom LOD)..\n")
         self.bake_custom_maps_and_setup_reader_nodes_accordingly(custom_lod_and_baking_subnet_node, customlod_path, polyreduce_percentage_float, maps_to_bake_dict, chosen_bake_resolution_str, make_reader_nodes_bool, use_temp_resolution_bool) # 'accordingly', as in, deals with make reader nodes and baking temp resolution maps, if variables make_reader_nodes_bool and temp_resolution_bool say so, respectively
 
 

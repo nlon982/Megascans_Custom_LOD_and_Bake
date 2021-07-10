@@ -69,7 +69,7 @@ class RedshiftMaterial(RendererMaterial):
 
         displacement_scale = megascans_asset_object.transform_node.parm("scale").eval()  # retrieved from transform_node after file import
         megascans_asset_object.asset_geometry_node.parm("RS_objprop_displace_scale").set(displacement_scale)
-        print("enabled Tessellation, Displacement, and set Displacement Scale")
+        #print("enabled Tessellation, Displacement, and set Displacement Scale")
 
     def __init__(self, asset_material_node_child):
         self.rs_material_builder_node = asset_material_node_child
