@@ -8,7 +8,7 @@ import megascans_custom_lod_and_bake_ui
 import renderer_material
 import lod_and_bake
 
-from functools import partial
+import functools
 
 # regarding reloading, so Houdini doesn't use the precompiled versions of these (in case there's a change to any of these)
 reload(megascans_custom_lod_and_bake_ui)
@@ -34,7 +34,7 @@ class MegascansAsset:
         print("----------- execute_custom_lod_and_baking end -----------") # hmm
 
     @staticmethod
-    def count_of_maps_to_bake(maps_to_bake_dict):  # more useful than a method "is_zero_maps_to_bake"
+    def count_of_maps_to_bake(maps_to_bake_dict):  # more useful than a "is_zero_maps_to_bake"
         count_of_maps_to_bake = 0
         for map_name in maps_to_bake_dict:
             bake_bool = maps_to_bake_dict[map_name]
@@ -150,7 +150,7 @@ class MegascansAsset:
         customlod_path = os_path_join_for_houdini(self.megascans_asset_folder_path, customlod_basename)
 
         if os.path.exists(customlod_path) == False: # lol PEP 8
-            user_choice = MegascansAsset.display_custom_lod_and_baking_tool_message("(optional) Before baking out Custom LOD, would you like to save you hip file?", buttons = ('Yes', 'No'), default_choice = 0)  # 0 is Yes, 1 is No
+            user_choice = MegascansAsset.display_custom_lod_and_baking_tool_message("(optional) Before baking out the Custom LOD, would you like to save this hip file?", buttons = ('Yes', 'No'), default_choice = 0)  # 0 is Yes, 1 is No
             if user_choice == 0:  # yes
                 hou.hipFile.save()
 
@@ -166,7 +166,7 @@ class MegascansAsset:
         return customlod_path
 
 
-    def organise_megascans_asset_subnet(self, custom_lod_and_baking_subnet_node):
+    def organise_megascans_asset_subnet(self, custom_lod_and_baking_subnet_node):  # TODO: maybe organise_megascans_asset_subnet can just recursively do LayoutChildren on self.megascans_asset_subnet_node, so that we don't have to give it custom_lod_and_baking_subnet_node
         # note, to render (e.g. via a PDG) the below needs to be True. However, since a PDG's rendering uses a previously saved hipfile with this True, it's fine to set this to False
         custom_lod_and_baking_subnet_node.setDisplayFlag(False)
 
@@ -225,7 +225,7 @@ class MegascansAsset:
         """
         Given a map_name_and_node_setup_dict, identify the reader nodes (nodes which have a certain parameter content) and their reader param (node with that corresponding parameter content) -- and put in a dict with map name as key
 
-        Currently, this 'parameter content' is "{export_path}", but feel free to change how reader nodes / reader params are identified better
+        Currently, this 'parameter content' is "{export_path}", but feel free to change how reader nodes / reader params are identified better. Note that these are things using each other, so while this and RedshiftMaterial both have "{export_path}", we're getting this to use that; yes, we could make this and RedshiftMaterial both follow some agreement (e.g. a third part, e.g. a configuration file), we won't go that deep for now - this is a nice abstraction to work on.
         """
 
         some_parameter_content = "{export_path}"
@@ -251,7 +251,7 @@ class MegascansAsset:
         """
         Put all nodes created by execute_custom_lod_and_baking in to a network box
 
-        (a hacky way, using the fact that all the nodes created are in passed map_name_and_reader_node_dict, and are reader nodes or connected to reader nodes)
+        (a hacky way, using the fact that all the nodes created are reader nodes or connected to reader nodes)
         """
         material_builder_node = self.asset_material_object.get_material_builder_node()
 
@@ -266,63 +266,22 @@ class MegascansAsset:
         a_vector = hou.Vector2(2, 0)  # hard coded (the size needed to fit the comment above)
         network_box.resize(a_vector)
 
-    def update_megascans_material_reader_nodes_export_paths(self, map_name_and_reader_node_dict, map_name_and_export_paths_dict): # note this assumes self.asset_material_object is not None (specifically, a subclass of RendererMaterial)
-        """
-        This function modifies the reader nodes in this node setup: updating their "reader parameter's" to the export paths given.
-        """
+
+    @staticmethod
+    def update_reader_nodes(asset_material_object, map_name_and_reader_node_dict, map_name_and_export_paths_dict): # Note this assumes self.asset_material_object is not None (specifically, a subclass of RendererMaterial).
+        # TODO: perhaps this indeed makes sense to be a static method. Note that it can be used standalone?
+
+        material_builder_node = asset_material_object.get_material_builder_node()
+
         for map_name in map_name_and_reader_node_dict.keys():
             reader_node_name, reader_node_param_name = map_name_and_reader_node_dict[map_name]
             export_path = map_name_and_export_paths_dict[map_name]
 
             # doing this way, rather than using string processor (as the latter doesn't simplify things)
-            material_builder_node = self.asset_material_object.get_material_builder_node()
             reader_node = hou.node("{}/{}".format(material_builder_node.path(), reader_node_name))
             # print(reader_node_name, reader_node_param_name)
             reader_node.parm(reader_node_param_name).set(export_path)
 
-    def cook_event_handler_one(self, handler, event):  # because this event handler is passed the handler too
-        """
-        (Used when 'use temp low res maps' has been enabled)
-
-        This notifies user that their high res maps have finished baking, and asks if they want them to be swapped over
-        - and if yes, swaps them over.
-        """
-        # Ask if they want to swap over to chosenres maps
-        #nice_string_of_map_name_and_reader_node_dict = self.get_nice_string_of_map_name_and_reader_node_dict()
-        #do_it_yourself_message_string = "\n\nIf you want to do this manually, note the map name and the correspond reader nodes / reader parameters are:\n{}".format(nice_string_of_map_name_and_reader_node_dict)
-        # ^ currently not used
-
-        # Note, commented out the below, because it's one of the only parts of code that needs something related to execute_custom_lod_and_baking to be saved as an attribute in the object. I don't think there's any other way. It could just be an attribute, but that breaks philosophy that an instance of the MegascansAsset class only stores information related to the MegascansAsset it represents (and information to do with execute_custom_lod_and_baking isn't related)
-        #message_string = "Your {} resolution maps have finished baking. Currently your reader nodes are set to use the paths of the 1K maps, would you like your reader nodes to swap over to your chosen resolution maps now?".format(self.chosen_bake_resolution_str)
-        message_string = "Your chosen resolution maps have finished baking. Currently your reader nodes are set to use the paths of the 1K maps, would you like your reader nodes to swap over to your chosen resolution maps now?"
-
-        user_choice = MegascansAsset.display_custom_lod_and_baking_tool_message(message_string, buttons = ('Yes', 'No'), default_choice = 0)  # 0 is Yes, 1 is No
-
-        if user_choice == 0: # If yes, swap over
-            self.update_megascans_material_reader_nodes_export_paths(self.chosenres_map_name_and_export_paths_dict)
-            MegascansAsset.display_custom_lod_and_baking_tool_message("Reader nodes updated to your {} resolution maps successfully".format(self.chosen_bake_resolution_str))
-
-        handler.removeFromAllEmitters()  # remove this event handler from the event (rather, delete the emitters (the 'mouth') from the handler). Doing this so that a user doesn't get confused when they re-render, perhaps it's a good thing to keep the eventhandler?
-
-        self.all_done_message()
-
-    def cook_event_handler_two(self, handler, event):
-        """
-        (Used when 'use temp low res maps' has NOT been enabled)
-
-        Notifies user that their (chosen resolution) maps have finished baking.
-        """
-
-        # ditto to cook_event_handler_one
-        #if self.make_reader_nodes_bool == True:
-        #    MegascansAsset.display_message("Your {} resolution maps have finished baking! Note, your reader nodes are already set to the paths of these".format(self.chosen_bake_resolution_str))
-        #else:
-        #MegascansAsset.display_custom_lod_and_baking_tool_message("Your {} resolution maps have finished baking!".format(self.chosen_bake_resolution_str))
-        MegascansAsset.display_custom_lod_and_baking_tool_message("Your maps have finished baking!") # Omitting 'chosen resolution' in message to avoid confusion (indeed, 'chosen resolution' is nice to have when 'use temp low res maps' has been enabled)
-
-        handler.removeFromAllEmitters() # ditto to cook_event_handler_one
-
-        self.all_done_message()
 
 
     def bake_custom_maps_and_setup_reader_nodes_accordingly(self, custom_lod_and_baking_subnet_node, customlod_path, polyreduce_percentage_float, maps_to_bake_dict, chosen_bake_resolution_str, make_reader_nodes_bool, use_temp_resolution_bool):
@@ -366,24 +325,59 @@ class MegascansAsset:
             tempres_export_name_prefix, tempres_export_path, tempres_map_name_and_export_paths_dict = self.get_bake_info(tempres_bake_resolution_x_and_y, polyreduce_percentage_float, maps_to_bake_dict) # ^ ditto to above get_bake_info call
 
             # set reader nodes to tempres maps
-            self.update_megascans_material_reader_nodes_export_paths(map_name_and_reader_node_dict, tempres_map_name_and_export_paths_dict)
+            self.update_reader_nodes(self.asset_material_object, map_name_and_reader_node_dict, tempres_map_name_and_export_paths_dict)
 
             # configure PDG to bake tempres and then chosenres (via setting parameters on wedge node)
             string_processor(topnet_node, "@ewedge!wedgecount:2!wedgeattributes:2!name1:export_path!type1:4!values1:2!strvalue1_1:{}!strvalue1_2:{}!name2:bake_resolution_x_and_y!type2:2!wedgetype2:2!values2:2!intvalue2_1:{}!intvalue2_2:{}".format(tempres_export_path.replace(" ", "%20"), chosenres_export_path.replace(" ", "%20"), tempres_bake_resolution_x_and_y, chosenres_bake_resolution_x_and_y))
 
             # add event handler that asks if the user if they want to change reader nodes to chosenres once all PDG cooking is complete (i.e. chosenres will be finished cooking)
+            # it makes sense that these would be nested functions (if that's the name in Python), because these aren't used outside here. TODO: it's a shame there's so much code in this function, can this be tidied up?
+            def cook_event_handler_one_base(asset_material_object, map_name_and_reader_node_dict, chosenres_map_name_and_export_paths_dict, chosen_bake_resolution_str, handler, event):
+                """
+                (Used when 'use temp low res maps' has been enabled)
 
-            pdg_graph_context.addEventHandler(self.cook_event_handler_one, pdg.EventType.CookComplete, True)  # the True means that a handler will be passed to the event handler, as well as the event
+                This notifies user that their high res maps have finished baking, and asks if they want them to be swapped over - and if yes, swaps them over.
+                """
+                message_string = "Your {} resolution maps have finished baking. Currently your reader nodes are set to use the paths of the 1K maps, would you like your reader nodes to swap over to your chosen resolution maps now?".format(chosen_bake_resolution_str)
+                user_choice = MegascansAsset.display_custom_lod_and_baking_tool_message(message_string, buttons = ('Yes', 'No'), default_choice = 0)  # 0 is Yes, 1 is No
+
+                if user_choice == 0:  # If yes, swap over
+                    MegascansAsset.update_reader_nodes(asset_material_object, map_name_and_reader_node_dict, chosenres_map_name_and_export_paths_dict)
+                    MegascansAsset.display_custom_lod_and_baking_tool_message("Reader nodes updated to your {} resolution maps successfully".format(chosen_bake_resolution_str))
+
+                handler.removeFromAllEmitters()  # remove this event handler from the event (rather, delete the emitters (the 'mouth') from the handler). Doing this so that a user doesn't get confused when they re-render, perhaps it's a good thing to keep the eventhandler?
+
+                MegascansAsset.all_done_message()
+
+            cook_event_handler_one = functools.partial(cook_event_handler_one_base, self.asset_material_object, map_name_and_reader_node_dict, chosenres_map_name_and_export_paths_dict, chosen_bake_resolution_str) # i.e. cook_event_handler_one(handler, event) is the same as cook_event_handler_one_base(asset_material_object, map_name_and_reader_node_dict, chosenres_map_name_and_export_paths_dict, chosen_bake_resolution_str, handler, event)
+            pdg_graph_context.addEventHandler(cook_event_handler_one, pdg.EventType.CookComplete, True)  # the True means that a handler will be passed to the event handler, as well as the event
         else:
             if make_reader_nodes_bool == True:
                 # set reader nodes to chosenres maps
-                self.update_megascans_material_reader_nodes_export_paths(map_name_and_reader_node_dict, chosenres_map_name_and_export_paths_dict)
+                self.update_reader_nodes(self.asset_material_object, map_name_and_reader_node_dict, chosenres_map_name_and_export_paths_dict)
 
             # configure PDG to bake chosenres (via setting parameters on wedge node). Yes, because it's only baking one thing, PDG not necessary - but using PDG anyway because it allows us to use event handlers when maps have stopped baking
             string_processor(topnet_node, "@ewedge!wedgecount:1!wedgeattributes:2!name1:export_path!type1:4!values1:1!strvalue1_1:{}!name2:bake_resolution_x_and_y!type2:2!wedgetype2:2!values2:1!intvalue2_1:{}".format(chosenres_export_path.replace(" ", "%20"), chosenres_bake_resolution_x_and_y))
 
             # add event handler that notifies user once PDG cooking is complete
-            pdg_graph_context.addEventHandler(self.cook_event_handler_two, pdg.EventType.CookComplete, True) # ^ ditto to above event handler
+            def cook_event_handler_two_base(chosen_bake_resolution_str, make_reader_nodes_bool, handler, event):
+                """
+                (Used when 'use temp low res maps' has NOT been enabled)
+
+                Notifies user that their (chosen resolution) maps have finished baking.
+                """
+
+                if make_reader_nodes_bool == True:
+                    MegascansAsset.display_custom_lod_and_baking_tool_message("Your {} resolution maps have finished baking! (Note, your reader nodes are already set to the paths of these)".format(chosen_bake_resolution_str))
+                else:
+                    MegascansAsset.display_custom_lod_and_baking_tool_message("Your {} resolution maps have finished baking!".format(chosen_bake_resolution_str)) # omitting the word chosen to avoid confusion (in cook_event_handler_one, 'chosen' is used to differentiated betwen chosenres and tempres maps, whereas here, there's only one map)
+
+                handler.removeFromAllEmitters()  # ditto to cook_event_handler_one
+
+                MegascansAsset.all_done_message()
+
+            cook_event_handler_two = functools.partial(cook_event_handler_two_base, chosen_bake_resolution_str, make_reader_nodes_bool)
+            pdg_graph_context.addEventHandler(cook_event_handler_two, pdg.EventType.CookComplete, True) # ^ ditto to above event handler
 
 
         # --- Set display flags to visible, save hip file, and execute PDG
@@ -428,8 +422,10 @@ class MegascansAsset:
         #Note, 'if possible' meaning that we have a RenderMaterial subclass of it (and an instance of this was returned during MegascansAsset's __init__) which represents the material used for this megascans asset,
         # Note, a RenderMaterial subclass has the method 'configure_megascans_asset_subnet' which has instructions on how to fix a Megascan Asset subnet's improper configurations, given a MegascansAsset object
         if self.asset_material_object is not None:
+            print("Note, this Megascans Asset Subnet uses the renderer '{}'. Editing subnet for known things that Megascan's livelink misses when creating the nodes for an asset, for this renderer".format(self.asset_material_object.get_renderer_name()))
             self.asset_material_object.configure_megascans_asset_subnet(self)
-            print("Note, renderer name is: {}. Configured Megascans Asset Subnet (namely, regarding renderer) for things Megascans' livelink missed\n".format(self.asset_material_object.get_renderer_name()))
+            print("") # for the sake of a new line
+
 
 
         #------ Step bii (if no maps to bake, tell the user, give 'all done' message, and then return). Perhaps this should be incorporated into step c (moreover, bake_custom_maps_accordingly())
