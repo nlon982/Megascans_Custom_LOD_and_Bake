@@ -3,10 +3,12 @@ import abc
 ABC = abc.ABCMeta('ABC', (object,), {'__slots__': ()})  # from stack overflow https://stackoverflow.com/questions/35673474/using-abc-abcmeta-in-a-way-it-is-compatible-both-with-python-2-7-and-python-3-5
 
 class RendererMaterial(ABC):
+    @staticmethod
     @abc.abstractmethod
     def get_renderer_name():
         pass
 
+    @staticmethod
     @abc.abstractmethod
     def get_template_map_name_and_node_setup_dict():
         """
@@ -15,10 +17,12 @@ class RendererMaterial(ABC):
         pass
 
     @abc.abstractmethod
-    def configure_megascans_subnet(megascan_asset_object):
+    def configure_megascans_asset_subnet(self, megascans_asset_object):
         """
         Is there any <render name goes here> specific parameters, or other actions, in the Megascans Asset's Subnet that
         need to be configured? (i.e. anything Megascans forgets)
+
+        Feel free to use self and/or megascans_asset_object to do so.
         """
         pass
 
@@ -58,14 +62,14 @@ class RedshiftMaterial(RendererMaterial):
     def get_template_map_name_and_node_setup_dict():
         return RedshiftMaterial.redshift_map_name_and_node_setup_dict.copy() # is this elegant?
 
-    @staticmethod
-    def configure_megascans_asset_subnet(megascan_asset_object):
+    def configure_megascans_asset_subnet(self, megascans_asset_object):
         # Enable Tessellation, Displacement, and set Displacement Scale
-        megascan_asset_object.asset_geometry_node.parm("RS_objprop_rstess_enable").set(1)
-        megascan_asset_object.asset_geometry_node.parm("RS_objprop_displace_enable").set(1)
+        megascans_asset_object.asset_geometry_node.parm("RS_objprop_rstess_enable").set(1)
+        megascans_asset_object.asset_geometry_node.parm("RS_objprop_displace_enable").set(1)
 
-        displacement_scale = megascan_asset_object.transform_node.parm("scale").eval()  # retrieved from transform_node after file import
-        megascan_asset_object.asset_geometry_node.parm("RS_objprop_displace_scale").set(displacement_scale)
+        displacement_scale = megascans_asset_object.transform_node.parm("scale").eval()  # retrieved from transform_node after file import
+        megascans_asset_object.asset_geometry_node.parm("RS_objprop_displace_scale").set(displacement_scale)
+        print("enabled Tessellation, Displacement, and set Displacement Scale")
 
     def __init__(self, asset_material_node_child):
         self.rs_material_builder_node = asset_material_node_child

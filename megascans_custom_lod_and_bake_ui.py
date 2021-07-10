@@ -240,7 +240,7 @@ class MegascansFixerDialog(HDialog):
                 self.use_temp_resolution_checkbox = HCheckbox("use_temp_resolution_checkbox", "Temporarily bake 1K Resolution and set reader nodes to this, while the above 'Bake Resolution' is baked (does nothing if 'Bake Resolution' is 1K)")
                 self.use_temp_resolution_checkbox.setValue("0")  # ^ ditto
 
-                if renderer_name != "Redshift":
+                if renderer_name != "Redshift": # currently hardcoded so that these can only be enabled with renderer_name 'Redshift'
                         self.make_reader_nodes_checkbox.setEnabled(False)
                         self.use_temp_resolution_checkbox.setEnabled(False)
 
@@ -273,7 +273,7 @@ class MegascansFixerDialog(HDialog):
 
         def cb_go_button(self):
                 self.close()
-                hdefereval.executeDeferred(self.get_information_ready_and_send_to_execute_fix) # "gets called after Houdini has done processing the queued UI events"  https://www.sidefx.com/forum/topic/23523/
+                hdefereval.executeDeferred(self.get_information_ready_and_send_to_execute_custom_lod_and_baking) # "gets called after Houdini has done processing the queued UI events"  https://www.sidefx.com/forum/topic/23523/
                 # ^ works perfectly for my purpose
 
         def cb_make_reader_nodes_checkbox(self):
@@ -285,7 +285,7 @@ class MegascansFixerDialog(HDialog):
 
 
 
-        def get_information_ready_and_send_to_execute_fix(self):
+        def get_information_ready_and_send_to_execute_custom_lod_and_baking(self):
                 #-------------- Get information from UI (I have types in the variable names for the sake of clarity)
                 polyreduce_percentage_float = float(self.polyreduce_percentage_slider.getValue())
 
@@ -327,7 +327,6 @@ class MegascansFixerDialog(HDialog):
                 #hou.ui.displayMessage(message_string)
 
                 # using displacement resolution as resolution for all maps you ask it to bake! I need to a discussion with Muggy on how it should be dealt with
-                
-                self.megascans_asset_object.execute_custom_lod_and_baking(polyreduce_percentage_float, maps_to_bake_dict, map_resolution_str, make_reader_nodes_bool, use_temp_resolution_bool)
 
+                self.megascans_asset_object.execute_custom_lod_and_baking(polyreduce_percentage_float, maps_to_bake_dict, map_resolution_str, make_reader_nodes_bool, use_temp_resolution_bool)
                 

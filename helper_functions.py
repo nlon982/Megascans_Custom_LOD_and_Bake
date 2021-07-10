@@ -1,12 +1,12 @@
 import os
 import hou
 
-def os_path_join_for_houdini(*args):  # because Houdini likes to use forward slashes. Note, this is just cosmetic
+def os_path_join_for_houdini(*args):  # because Houdini likes to use forward slashes. Note, this is just cosmetic (Houdini is fine if you use backward slashes)
     a_path = ""
     if len(args) == 0:
         return a_path
     else:
-        slash = "/"  # if Houdini starts uses backslashes (or whatever the os's slashes are) change back to os.path.sep
+        slash = "/"  # if Houdini starts uses backslashes feel free to change (instead, if Houdini starts using whatever the os's slashes are, change to os.path.sep)
         for item in args:
             a_path += item + slash
 
