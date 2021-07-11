@@ -7,7 +7,7 @@ This contains a framework I created to easily create and change parameters of no
 
 ### 11/01/2021: This tool works completely, to my knowledge. Previously there was a mistake in the code which meant it didn't work for Megascans Assets that were imported for anything other than Redshift (e.g. Mantra), so I'm happy that's sorted. It also works with both Python 2 and Python 3 versions of Houdini (I tested on 18.5.351, but I have no reason to think it wouldn't work on any other version).
 
-### To use, simply click on a Megascans Asset Subnet (which has been imported in to Houdini via Quixel Bridge), and click on the shelf tool made by the installation process below.
+### To use, simply click on a Megascans Asset Subnet (which has been imported in to Houdini via Quixel Bridge / Livelink), and click on the shelf tool made by the installation process below.
 
 See https://www.byccollective.com/blog-posts/houdini-megascans-custom-lod-and-baking-tool for a video tutorial of its use and installation. Particularly, see 5:50 for the tool being used. The entire video is great for an explanation of what's happening.
 
