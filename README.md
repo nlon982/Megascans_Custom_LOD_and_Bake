@@ -19,7 +19,7 @@ PYTHONPATH = "path to folder containing the .py files downloaded from this GitHu
 ```
 
 ###### Notes
-- Make sure you're in the modifying the houdini.env in the correct Houdini directory e.g. if you're using Houdini 17.5, and you want this tool installed there, then look for a folder called 'Houdini17.5' (e.g. *'C:/Users/Nathan Longhurst/Documents/Houdini17.5/houdini.env'*). 
+- Make sure you're modifying the houdini.env in the correct Houdini directory e.g. if you're using Houdini 17.5, and you want this tool installed there, then look for a folder called 'Houdini17.5' (e.g. *'C:/Users/Nathan Longhurst/Documents/Houdini17.5/houdini.env'*). 
 - If there's already something using PYTHONPATH, all good, you can put as many items in it as you like: just seperate them with a semicolon. For example, *PYTHONPATH = "F:\projects\Megascans_Custom_LOD_and_Bake;C:\Users\Nathan Longhurst\blah"*
 
 ###### Why do I have to do this? 
