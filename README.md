@@ -13,11 +13,14 @@ See https://www.byccollective.com/blog-posts/houdini-megascans-custom-lod-and-ba
 
 ## Installation:
 
-#### STEP 1) Add the following to your houdini.env file (usually found somewhere like C:/Users/Nathan Longhurst/Documents/Houdini18.0/houdini.env, note: make sure you're in the correct Houdini directory e.g. if you're using Houdini 17.5, then look for a folder called 'Houdini17.5'):
-
+#### STEP 1) Add the following to your houdini.env file (usually found somewhere like *'C:/Users/Nathan Longhurst/Documents/Houdini18.0/houdini.env'*)
 ```
 PYTHONPATH = "path to folder containing the .py files downloaded from this GitHub"
 ```
+
+###### Notes
+- Make sure you're in the modifying the houdini.env in the correct Houdini directory e.g. if you're using Houdini 17.5, and you want this tool installed there, then look for a folder called 'Houdini17.5' (e.g. *'C:/Users/Nathan Longhurst/Documents/Houdini17.5/houdini.env'*). 
+- If there's already something using PYTHONPATH, all good, you can put as many items in it as you like: just seperate them with a semicolon. For example, *PYTHONPATH = "F:\projects\Megascans_Custom_LOD_and_Bake;C:\Users\Nathan Longhurst\blah"*
 
 ###### Why do I have to do this? 
 The shelftool below tries to import the Python files ("modules") you just downloaded. Houdini has a list of places that it can look for Python files, and it's just a matter of making sure that one of the places Houdini looks for Python files is the folder containing *these* Python files. Fun fact: when Houdini is launched, it looks at the variables in its houdini.env, and the value corresponding with the variable 'PYTHONPATH' is one of these places Houdini will look for Python code.
